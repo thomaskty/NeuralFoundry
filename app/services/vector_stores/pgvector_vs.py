@@ -1,12 +1,25 @@
 import numpy as np
 from sqlalchemy import text
+from typing import List, Optional
 from app.db.database import engine
 
+
 def _vec_literal(embedding: np.ndarray) -> str:
+    """Convert numpy array to PostgreSQL vector literal"""
     return "[" + ",".join(map(str, embedding.tolist())) + "]"
 
+
 class PgVectorStore:
-    async def add_message(self, session_id: str, role: str, content: str, embedding: np.ndarray | None):
+    """Vector store for chat messages and KB chunks using pgvector"""
+
+    async def add_message(
+            self,
+            session_id: str,
+            role: str,
+            content: str,
+            embedding: np.ndarray | None
+    ):
+        """Add a chat message with optional embedding"""
         async with engine.begin() as conn:
             if embedding is not None:
                 vec_literal = _vec_literal(embedding)
@@ -19,30 +32,46 @@ class PgVectorStore:
                     INSERT INTO chat_messages (session_id, role, content)
                     VALUES ('{session_id}', '{role}', '{content.replace("'", "''")}')
                 """
-
             await conn.exec_driver_sql(sql)
 
     async def search_similar(
             self,
-            vec,
+            vec: np.ndarray,
             limit: int = 5,
             threshold: float | None = None,
             session_filter: str | None = None
-        ):
-        vec_literal = "[" + ",".join(map(str, vec.tolist())) + "]"
+    ) -> List[dict]:
+        """
+        Search for similar messages in chat history.
+
+        Args:
+            vec: Query embedding vector
+            limit: Maximum number of results
+            threshold: Minimum similarity threshold (0-1)
+            session_filter: Filter by specific session_id
+
+        Returns:
+            List of dicts with keys: id, session_id, role, content, similarity
+        """
+        vec_literal = _vec_literal(vec)
 
         # Build WHERE clause
-        where_clause = ""
+        where_clauses = []
         if session_filter:
-            where_clause = f"WHERE session_id = '{session_filter}'"
+            where_clauses.append(f"session_id = '{session_filter}'")
 
         if threshold is not None:
-            where_clause += (" AND " if where_clause else "WHERE ") + \
-                            f"1 - (embedding <=> '{vec_literal}'::vector) >= {threshold}"
+            where_clauses.append(f"1 - (embedding <=> '{vec_literal}'::vector) >= {threshold}")
+
+        where_clause = "WHERE " + " AND ".join(where_clauses) if where_clauses else ""
 
         sql = f"""
-            SELECT id, session_id, role, content,
-                   1 - (embedding <=> '{vec_literal}'::vector) AS similarity
+            SELECT 
+                id, 
+                session_id, 
+                role, 
+                content,
+                1 - (embedding <=> '{vec_literal}'::vector) AS similarity
             FROM chat_messages
             {where_clause}
             ORDER BY similarity DESC
@@ -51,6 +80,101 @@ class PgVectorStore:
 
         async with engine.begin() as conn:
             result = await conn.exec_driver_sql(sql)
-            rows = result.mappings().all()  # returns list of dict-like RowMapping objects
-            return rows
+            rows = result.mappings().all()
+            return [dict(row) for row in rows]
 
+    async def search_kb_chunks(
+            self,
+            vec: np.ndarray,
+            kb_ids: List[str],
+            limit_per_kb: int = 3,
+            threshold: float | None = None
+    ) -> List[dict]:
+        """
+        Search for similar chunks across multiple knowledge bases.
+
+        Args:
+            vec: Query embedding vector
+            kb_ids: List of knowledge base IDs to search
+            limit_per_kb: Maximum chunks to return per KB
+            threshold: Minimum similarity threshold (0-1)
+
+        Returns:
+            List of dicts with keys: id, kb_id, document_id, chunk_index,
+            text, similarity, filename
+        """
+        if not kb_ids:
+            return []
+
+        vec_literal = _vec_literal(vec)
+
+        # Build WHERE clause for KB filtering
+        kb_filter = "', '".join(kb_ids)
+        where_clause = f"WHERE c.kb_id IN ('{kb_filter}')"
+
+        if threshold is not None:
+            where_clause += f" AND 1 - (c.embedding <=> '{vec_literal}'::vector) >= {threshold}"
+
+        # Use ROW_NUMBER() to limit results per KB
+        sql = f"""
+            WITH ranked_chunks AS (
+                SELECT 
+                    c.id,
+                    c.kb_id,
+                    c.document_id,
+                    c.chunk_index,
+                    c.text,
+                    c.token_count,
+                    d.filename,
+                    k.title as kb_title,
+                    1 - (c.embedding <=> '{vec_literal}'::vector) AS similarity,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY c.kb_id 
+                        ORDER BY 1 - (c.embedding <=> '{vec_literal}'::vector) DESC
+                    ) as rank
+                FROM kb_chunks c
+                JOIN kb_documents d ON c.document_id = d.id
+                JOIN knowledge_bases k ON c.kb_id = k.id
+                {where_clause}
+            )
+            SELECT 
+                id,
+                kb_id,
+                document_id,
+                chunk_index,
+                text,
+                token_count,
+                filename,
+                kb_title,
+                similarity
+            FROM ranked_chunks
+            WHERE rank <= {limit_per_kb}
+            ORDER BY similarity DESC;
+        """
+
+        async with engine.begin() as conn:
+            result = await conn.exec_driver_sql(sql)
+            rows = result.mappings().all()
+            return [dict(row) for row in rows]
+
+    async def get_attached_kb_ids(self, chat_id: str) -> List[str]:
+        """
+        Get all knowledge base IDs attached to a chat session.
+
+        Args:
+            chat_id: Chat session ID
+
+        Returns:
+            List of KB IDs (as strings)
+        """
+        sql = f"""
+            SELECT kb_id::text
+            FROM chat_session_kbs
+            WHERE chat_id = '{chat_id}'
+            ORDER BY attached_at DESC;
+        """
+
+        async with engine.begin() as conn:
+            result = await conn.exec_driver_sql(sql)
+            rows = result.fetchall()
+            return [row[0] for row in rows]

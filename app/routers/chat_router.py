@@ -8,24 +8,36 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.db.models import ChatMessage, ChatSession, User
 from app.models.schemas import ChatCreate, MessageCreate, ChatSummaryRead
-from app.services.orchestrations.chat_conversation import generate_response
+from app.services.pipelines.chat_pipelines import generate_response_with_kb
 
 router = APIRouter()
 
 
 # -------------------------------------------------------------------------
-# 1. Chat message handler : validated
+# 1. Chat message handler with KB support : ENHANCED
 # -------------------------------------------------------------------------
 @router.post("/chats/{chat_id}/messages", status_code=status.HTTP_201_CREATED)
 async def conversation_chat(chat_id: str, body: MessageCreate):
     """
     Handle user messages and generate an assistant reply.
+    Now supports Knowledge Base context automatically!
+
+    The system will:
+    1. Check if any KBs are attached to this chat
+    2. Search relevant information from attached KBs
+    3. Search relevant messages from chat history
+    4. Generate response using both contexts
     """
     if not body.content.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    reply = await generate_response(chat_id, body.content)
-    return {"chat_id": chat_id, "reply": reply}
+    # Use KB-aware pipeline (automatically handles KBs if attached)
+    reply = await generate_response_with_kb(chat_id, body.content)
+
+    return {
+        "chat_id": chat_id,
+        "reply": reply
+    }
 
 
 # -------------------------------------------------------------------------
@@ -44,6 +56,7 @@ async def create_chat_for_user(user_id: str, payload: ChatCreate, db: AsyncSessi
 
     chat = ChatSession(
         title=payload.title or "Untitled",
+        system_prompt=payload.system_prompt or None,
         created_at=datetime.now(timezone.utc),
         user_id=user_id,
     )
@@ -55,8 +68,10 @@ async def create_chat_for_user(user_id: str, payload: ChatCreate, db: AsyncSessi
         "chat_id": str(chat.id),
         "user_id": str(user_id),
         "title": chat.title,
-        "created_at": chat.created_at,
+        "system_prompt": chat.system_prompt,
+        "created_at": chat.created_at
     }
+
 
 # -------------------------------------------------------------------------
 # 3. Fetch chat + messages : validated
@@ -85,6 +100,7 @@ async def get_chat(chat_id: str, db: AsyncSession = Depends(get_db)):
             "user_id": str(chat.user.id) if chat.user else None,
             "username": chat.user.username if chat.user else None
         },
+        "system_prompt": chat.system_prompt,
         "messages": [
             {
                 "id": m.id,
@@ -146,6 +162,7 @@ async def get_all_chats(db: AsyncSession = Depends(get_db)):
 
     return all_chats
 
+
 # -------------------------------------------------------------------------
 # 6. List all chats per user : validated ( chat content is not there but chat_id is available )
 # -------------------------------------------------------------------------
@@ -170,6 +187,7 @@ async def get_user_chats(user_id: str, db: AsyncSession = Depends(get_db)):
             for c in chats
         ],
     }
+
 
 # Optional: allow creation without user linkage (for backward compatibility)
 @router.post("/chats", status_code=status.HTTP_201_CREATED)
