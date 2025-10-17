@@ -14,8 +14,10 @@ const api = axios.create({
 // User APIs
 // ============================================================================
 export const userAPI = {
-  getByUsername: async (username) => {
-    const response = await api.get(`/users?username=${username}`)
+  login: async (username) => {
+    const response = await api.post('/users/login', null, {
+      params: { username }
+    })
     return response.data
   },
 
@@ -34,10 +36,10 @@ export const chatAPI = {
     return response.data
   },
 
-  createChat: async (userId, title) => {
+  createChat: async (userId, title, systemPrompt = null) => {
     const response = await api.post(`/users/${userId}/chats`, {
       title: title || 'New Chat',
-      system_prompt: null
+      system_prompt: systemPrompt
     })
     return response.data
   },
@@ -91,6 +93,16 @@ export const kbAPI = {
         }
       }
     )
+    return response.data
+  },
+
+  listDocuments: async (kbId) => {
+    const response = await api.get(`/knowledge-bases/${kbId}/documents`)
+    return response.data
+  },
+
+  deleteDocument: async (kbId, documentId) => {
+    const response = await api.delete(`/knowledge-bases/${kbId}/documents/${documentId}`)
     return response.data
   },
 

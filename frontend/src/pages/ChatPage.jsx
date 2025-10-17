@@ -66,15 +66,17 @@ export default function ChatPage({ user, onLogout }) {
     }
   }
 
-  const handleNewChat = async () => {
+  const handleNewChat = async (title, systemPrompt) => {
     try {
-      const newChat = await chatAPI.createChat(user.id, 'New Chat')
+      // Create chat with title and system prompt
+      const newChat = await chatAPI.createChat(user.id, title, systemPrompt)
       setChats([newChat, ...chats])
       setCurrentChat(newChat)
       setMessages([])
       setAttachedKBs([])
     } catch (error) {
       console.error('Failed to create chat:', error)
+      throw error // Re-throw so modal can handle it
     }
   }
 
@@ -114,6 +116,7 @@ export default function ChatPage({ user, onLogout }) {
         id: Date.now() + 1,
         role: 'assistant',
         content: response.reply,
+        metadata: response.metadata || {},
         created_at: new Date().toISOString()
       }
 

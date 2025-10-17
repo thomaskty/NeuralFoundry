@@ -34,6 +34,96 @@ class PgVectorStore:
                 """
             await conn.exec_driver_sql(sql)
 
+    async def get_recent_messages(
+            self,
+            session_id: str,
+            limit: int = 10
+    ) -> List[dict]:
+        """
+        Get the most recent N messages from a chat session.
+        Returns messages in chronological order (oldest first).
+        Used for maintaining conversation context.
+
+        Args:
+            session_id: Chat session ID
+            limit: Number of recent messages to retrieve
+
+        Returns:
+            List of dicts with keys: id, session_id, role, content, created_at
+        """
+        sql = f"""
+            SELECT 
+                id,
+                session_id,
+                role,
+                content,
+                created_at
+            FROM chat_messages
+            WHERE session_id = '{session_id}'
+            ORDER BY created_at DESC
+            LIMIT {limit};
+        """
+
+        async with engine.begin() as conn:
+            result = await conn.exec_driver_sql(sql)
+            rows = result.mappings().all()
+            # Reverse to get chronological order (oldest first)
+            return list(reversed([dict(row) for row in rows]))
+
+    async def search_similar_excluding_recent(
+            self,
+            vec: np.ndarray,
+            session_id: str,
+            exclude_recent_count: int = 10,
+            limit: int = 3,
+            threshold: float = 0.75
+    ) -> List[dict]:
+        """
+        Search for similar messages excluding the most recent N messages.
+        Used for finding relevant context from older conversation.
+
+        Args:
+            vec: Query embedding vector
+            session_id: Chat session ID
+            exclude_recent_count: Number of recent messages to exclude
+            limit: Maximum number of results
+            threshold: Minimum similarity threshold (0-1)
+
+        Returns:
+            List of dicts with keys: id, session_id, role, content, similarity, created_at
+        """
+        vec_literal = _vec_literal(vec)
+
+        # Get IDs of recent messages to exclude
+        recent_ids_sql = f"""
+            SELECT id FROM chat_messages
+            WHERE session_id = '{session_id}'
+            ORDER BY created_at DESC
+            LIMIT {exclude_recent_count}
+        """
+
+        sql = f"""
+            WITH recent_message_ids AS ({recent_ids_sql})
+            SELECT 
+                id, 
+                session_id, 
+                role, 
+                content,
+                created_at,
+                1 - (embedding <=> '{vec_literal}'::vector) AS similarity
+            FROM chat_messages
+            WHERE session_id = '{session_id}'
+              AND id NOT IN (SELECT id FROM recent_message_ids)
+              AND 1 - (embedding <=> '{vec_literal}'::vector) >= {threshold}
+            ORDER BY similarity DESC
+            LIMIT {limit};
+        """
+
+        async with engine.begin() as conn:
+            result = await conn.exec_driver_sql(sql)
+            rows = result.mappings().all()
+            return [dict(row) for row in rows]
+
     async def search_similar(
             self,
             vec: np.ndarray,
@@ -43,6 +133,7 @@ class PgVectorStore:
     ) -> List[dict]:
         """
         Search for similar messages in chat history.
+        Legacy method - kept for backward compatibility.
 
         Args:
             vec: Query embedding vector
@@ -101,7 +192,7 @@ class PgVectorStore:
 
         Returns:
             List of dicts with keys: id, kb_id, document_id, chunk_index,
-            text, similarity, filename
+            text, similarity, filename, kb_title
         """
         if not kb_ids:
             return []
@@ -178,3 +269,24 @@ class PgVectorStore:
             result = await conn.exec_driver_sql(sql)
             rows = result.fetchall()
             return [row[0] for row in rows]
+
+    async def get_chat_system_prompt(self, chat_id: str) -> Optional[str]:
+        """
+        Get the custom system prompt for a chat session.
+
+        Args:
+            chat_id: Chat session ID
+
+        Returns:
+            System prompt string or None
+        """
+        sql = f"""
+            SELECT system_prompt
+            FROM chat_sessions
+            WHERE id = '{chat_id}';
+        """
+
+        async with engine.begin() as conn:
+            result = await conn.exec_driver_sql(sql)
+            row = result.fetchone()
+            return row[0] if row and row[0] else None

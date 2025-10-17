@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Loader2, AlertCircle } from 'lucide-react'
-import axios from 'axios'
+import { userAPI } from '../services/api'
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState('')
@@ -19,11 +19,8 @@ export default function LoginPage({ onLogin }) {
     setLoading(true)
 
     try {
-      // Login with existing user only
-      const response = await axios.post('/api/v1/users/login', null, {
-        params: { username: username.trim() }
-      })
-      onLogin(response.data)
+      const userData = await userAPI.login(username.trim())
+      onLogin(userData)
     } catch (err) {
       if (err.response?.status === 404) {
         setError('User not found. Please check your username or contact administrator.')

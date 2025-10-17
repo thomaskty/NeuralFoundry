@@ -12,7 +12,6 @@ from app.services.pipelines.chat_pipelines import generate_response_with_kb
 
 router = APIRouter()
 
-
 # -------------------------------------------------------------------------
 # 1. Chat message handler with KB support and metadata : ENHANCED
 # -------------------------------------------------------------------------

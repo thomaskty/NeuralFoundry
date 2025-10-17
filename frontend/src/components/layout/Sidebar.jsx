@@ -1,12 +1,13 @@
 import { Plus, MessageSquare, Trash2, Database } from 'lucide-react'
 import { useState } from 'react'
 import KBManagementModal from '../kb/KBManagementModal'
+import NewChatModal from '../chat/NewChatModal'
 
-export default function Sidebar({ 
-  chats, 
-  currentChat, 
-  onNewChat, 
-  onSelectChat, 
+export default function Sidebar({
+  chats,
+  currentChat,
+  onNewChat,
+  onSelectChat,
   onDeleteChat,
   knowledgeBases,
   onKBCreated,
@@ -14,6 +15,11 @@ export default function Sidebar({
   userId
 }) {
   const [showKBModal, setShowKBModal] = useState(false)
+  const [showNewChatModal, setShowNewChatModal] = useState(false)
+
+  const handleCreateChat = async (chatData) => {
+    await onNewChat(chatData.title, chatData.system_prompt)
+  }
 
   return (
     <>
@@ -21,7 +27,7 @@ export default function Sidebar({
         {/* New Chat Button */}
         <div className="p-4">
           <button
-            onClick={onNewChat}
+            onClick={() => setShowNewChatModal(true)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition"
           >
             <Plus size={20} />
@@ -47,7 +53,7 @@ export default function Sidebar({
                 onClick={() => onSelectChat(chat)}
               >
                 <div className="flex items-start gap-2">
-                  <MessageSquare size={16} className="text-gray-600 mt-0.5" />
+                  <MessageSquare size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">
                       {chat.title || 'New Chat'}
@@ -60,9 +66,11 @@ export default function Sidebar({
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      onDeleteChat(chat.chat_id)
+                      if (confirm('Delete this chat?')) {
+                        onDeleteChat(chat.chat_id)
+                      }
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition"
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition flex-shrink-0"
                   >
                     <Trash2 size={14} className="text-red-600" />
                   </button>
@@ -83,6 +91,14 @@ export default function Sidebar({
           </button>
         </div>
       </div>
+
+      {/* Modals */}
+      <NewChatModal
+        isOpen={showNewChatModal}
+        onClose={() => setShowNewChatModal(false)}
+        onCreateChat={handleCreateChat}
+        userId={userId}
+      />
 
       {showKBModal && (
         <KBManagementModal

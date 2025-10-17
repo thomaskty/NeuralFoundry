@@ -1,3 +1,5 @@
+
+# app/services/llm_clients/mistral_client.py
 from typing import Optional
 from mistralai import Mistral
 import os
@@ -12,7 +14,7 @@ class LLMClient:
     to avoid blocking the event loop.
     """
 
-    def __init__(self, default_model: str = "mistral-tiny"):
+    def __init__(self, default_model: str = "mistral-large"):
 
         if not settings.MISTRAL_API_KEY:
             raise RuntimeError("MISTRAL_API_KEY is not set in environment variables")
