@@ -14,29 +14,28 @@ router = APIRouter()
 
 
 # -------------------------------------------------------------------------
-# 1. Chat message handler with KB support : ENHANCED
+# 1. Chat message handler with KB support and metadata : ENHANCED
 # -------------------------------------------------------------------------
 @router.post("/chats/{chat_id}/messages", status_code=status.HTTP_201_CREATED)
 async def conversation_chat(chat_id: str, body: MessageCreate):
     """
     Handle user messages and generate an assistant reply.
-    Now supports Knowledge Base context automatically!
+    Now supports Knowledge Base context automatically and returns metadata!
 
-    The system will:
-    1. Check if any KBs are attached to this chat
-    2. Search relevant information from attached KBs
-    3. Search relevant messages from chat history
-    4. Generate response using both contexts
+    Returns:
+        - reply: Clean response text
+        - metadata: Source information (KB, chat history usage)
     """
     if not body.content.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    # Use KB-aware pipeline (automatically handles KBs if attached)
-    reply = await generate_response_with_kb(chat_id, body.content)
+    # Use KB-aware pipeline (returns dict with reply + metadata)
+    response_data = await generate_response_with_kb(chat_id, body.content)
 
     return {
         "chat_id": chat_id,
-        "reply": reply
+        "reply": response_data["reply"],
+        "metadata": response_data.get("metadata", {})
     }
 
 
@@ -74,12 +73,12 @@ async def create_chat_for_user(user_id: str, payload: ChatCreate, db: AsyncSessi
 
 
 # -------------------------------------------------------------------------
-# 3. Fetch chat + messages : validated
+# 3. Fetch chat + messages : validated (with ORDER BY fix)
 # -------------------------------------------------------------------------
 @router.get("/chats/{chat_id}")
 async def get_chat(chat_id: str, db: AsyncSession = Depends(get_db)):
     """
-    Fetch all messages for a given chat_id, along with the user who created the chat.
+    Fetch all messages for a given chat_id, properly ordered by timestamp.
     """
     # Fetch the chat session + related user + messages
     result = await db.execute(
@@ -91,6 +90,9 @@ async def get_chat(chat_id: str, db: AsyncSession = Depends(get_db)):
 
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
+
+    # Sort messages by created_at to ensure correct order
+    sorted_messages = sorted(chat.messages, key=lambda m: m.created_at)
 
     return {
         "chat_id": str(chat.id),
@@ -108,7 +110,7 @@ async def get_chat(chat_id: str, db: AsyncSession = Depends(get_db)):
                 "content": m.content,
                 "created_at": m.created_at
             }
-            for m in chat.messages
+            for m in sorted_messages
         ],
     }
 
@@ -146,7 +148,9 @@ async def get_all_chats(db: AsyncSession = Depends(get_db)):
     all_chats = []
     for chat in chats:
         messages_result = await db.execute(
-            select(ChatMessage).where(ChatMessage.session_id == chat.id)
+            select(ChatMessage)
+            .where(ChatMessage.session_id == chat.id)
+            .order_by(ChatMessage.created_at)  # Order by timestamp
         )
         messages = messages_result.scalars().all()
 

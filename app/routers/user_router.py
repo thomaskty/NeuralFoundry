@@ -1,52 +1,102 @@
-import uuid
-from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, status, Depends
+# app/routers/user_router.py
+from fastapi import APIRouter, HTTPException, status, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
 from app.db.database import get_db
-from app.db.models import User, ChatSession
-from app.models.schemas import UserCreate, UserRead
+from app.db.models import User
+from app.models.schemas import UserCreate
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter()
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=UserRead)
-async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+# -------------------------------------------------------------------------
+# 1. Login - Existing users only
+# -------------------------------------------------------------------------
+@router.post("/users/login", status_code=status.HTTP_200_OK)
+async def login_user(
+        username: str = Query(..., description="Username to login with"),
+        db: AsyncSession = Depends(get_db)
+):
     """
-    Create a new user and store it in the database.
+    Login with existing username only.
+    Returns user data if found, 404 if not.
+    """
+    result = await db.execute(select(User).where(User.username == username))
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="User not found. Please contact administrator to create an account."
+        )
+
+    return {
+        "id": str(user.id),
+        "username": user.username,
+        "created_at": user.created_at
+    }
+
+
+# -------------------------------------------------------------------------
+# 2. Create user (admin only - for testing)
+# -------------------------------------------------------------------------
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+async def create_user(
+        payload: UserCreate,
+        db: AsyncSession = Depends(get_db)
+):
+    """
+    Create a new user.
+    In production, this should be admin-only or part of registration flow.
     """
     # Check if username already exists
     existing = await db.execute(select(User).where(User.username == payload.username))
     if existing.scalars().first():
-        raise HTTPException(status_code=400, detail="Username already exists")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Username '{payload.username}' already exists"
+        )
 
-    user = User(
-        id=uuid.uuid4().hex,
-        username=payload.username,
-        created_at=datetime.now(timezone.utc),
-    )
+    user = User(username=payload.username)
     db.add(user)
     await db.commit()
     await db.refresh(user)
 
-    return user
+    return {
+        "id": str(user.id),
+        "username": user.username,
+        "created_at": user.created_at
+    }
 
 
-@router.get("/", response_model=list[UserRead])
-async def get_all_users(db: AsyncSession = Depends(get_db)):
+# -------------------------------------------------------------------------
+# 3. Get all users (for admin/testing)
+# -------------------------------------------------------------------------
+@router.get("/users")
+async def list_users(db: AsyncSession = Depends(get_db)):
     """
-    Fetch all registered users.
+    List all users in the system.
     """
     result = await db.execute(select(User))
     users = result.scalars().all()
-    return users
+
+    return [
+        {
+            "id": str(user.id),
+            "username": user.username,
+            "created_at": user.created_at
+        }
+        for user in users
+    ]
 
 
-@router.get("/{user_id}", response_model=UserRead)
+# -------------------------------------------------------------------------
+# 4. Get user by ID
+# -------------------------------------------------------------------------
+@router.get("/users/{user_id}")
 async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
     """
-    Fetch details for a specific user by ID.
+    Get user details by ID.
     """
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
@@ -54,28 +104,8 @@ async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return user
-
-
-@router.get("/{user_id}/chats")
-async def get_user_chats(user_id: str, db: AsyncSession = Depends(get_db)):
-    """
-    Fetch all chats created by a given user.
-    """
-    # Ensure the user exists
-    user_result = await db.execute(select(User).where(User.id == user_id))
-    user = user_result.scalars().first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    chats_result = await db.execute(select(ChatSession).where(ChatSession.user_id == user_id))
-    chats = chats_result.scalars().all()
-
     return {
-        "user_id": user_id,
+        "id": str(user.id),
         "username": user.username,
-        "chats": [
-            {"id": c.id, "title": c.title, "created_at": c.created_at}
-            for c in chats
-        ],
+        "created_at": user.created_at
     }

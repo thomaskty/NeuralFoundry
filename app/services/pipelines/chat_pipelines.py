@@ -59,14 +59,10 @@ async def generate_response_with_kb(
         kb_chunk_threshold: Optional[float] = None,
         max_chat_history: Optional[int] = None,
         max_kb_per_kb: Optional[int] = None
-) -> str:
+) -> Dict:
     """
     Generate response using both chat history and knowledge base context.
-
-    This function implements a RAG (Retrieval Augmented Generation) pipeline that:
-    1. Searches chat history for relevant past messages
-    2. Searches attached knowledge bases for relevant information
-    3. Combines both contexts and generates a response
+    Returns dict with reply and metadata (sources used).
 
     Args:
         chat_id: Chat session ID
@@ -77,7 +73,7 @@ async def generate_response_with_kb(
         max_kb_per_kb: Max chunks per KB (default from settings)
 
     Returns:
-        Generated assistant response
+        Dict with 'reply' (clean response) and 'metadata' (sources info)
     """
     # Use settings defaults if not provided
     chat_history_threshold = chat_history_threshold or settings.CHAT_HISTORY_THRESHOLD
@@ -133,10 +129,11 @@ async def generate_response_with_kb(
         text_key="text"
     )
 
-    # 6. Build context for LLM
+    # 6. Build context for LLM (internal only, not shown to user)
     messages = []
     context_parts = []
     sources_used = []
+    kb_sources = []
 
     # Add KB context (general knowledge first)
     if kb_results:
@@ -147,18 +144,24 @@ async def generate_response_with_kb(
         kb_grouped = {}
         for chunk in kb_results:
             kb_title = chunk.get("kb_title", "Unknown KB")
+            filename = chunk.get("filename", "Unknown")
+
             if kb_title not in kb_grouped:
                 kb_grouped[kb_title] = []
             kb_grouped[kb_title].append(chunk)
+
+            # Track sources for metadata
+            source_info = f"{kb_title} - {filename}"
+            if source_info not in kb_sources:
+                kb_sources.append(source_info)
 
         for kb_title, chunks in kb_grouped.items():
             kb_context_lines.append(f"\n[Knowledge Base: {kb_title}]")
             for chunk in chunks:
                 filename = chunk.get("filename", "Unknown")
-                similarity = chunk.get("similarity", 0)
                 kb_context_lines.append(
-                    f"  • [From: {filename}] (relevance: {similarity:.2f})\n"
-                    f"    {chunk['text'][:500]}..."  # Limit chunk display
+                    f"  • [From: {filename}]\n"
+                    f"    {chunk['text'][:500]}..."
                 )
 
         context_parts.append("### Knowledge Base Information:\n" + "\n".join(kb_context_lines))
@@ -168,30 +171,27 @@ async def generate_response_with_kb(
         sources_used.append("conversation history")
         chat_context_lines = ["\n### Previous Conversation:"]
         for msg in chat_results:
-            similarity = msg.get("similarity", 0)
             chat_context_lines.append(
-                f"  • [{msg['role']}] (relevance: {similarity:.2f})\n"
+                f"  • [{msg['role']}]\n"
                 f"    {msg['content'][:300]}..."
             )
         context_parts.append("\n".join(chat_context_lines))
 
-    # Build system message with context
+    # Build system message with context (internal only)
     if context_parts:
         system_content = (
-                "You are a helpful AI assistant. Use the following information to answer the user's question accurately.\n\n"
+                "You are a helpful AI assistant. Use the following information to answer the user's question accurately and naturally.\n\n"
                 + "\n\n".join(context_parts) +
                 "\n\n---\n"
-                "Important: Base your answer on the provided context. If the context doesn't contain relevant information, "
-                "say so clearly. Always cite which source you're using (knowledge base or conversation history)."
+                "IMPORTANT: Provide a direct, natural answer to the user's question. "
+                "Do NOT mention that you're using a knowledge base or conversation history. "
+                "Simply answer as if you naturally know this information. "
+                "Be conversational and helpful."
         )
         messages.append(SystemMessage(content=system_content))
-
-        # Add source transparency note
-        sources_note = f"[Using: {', '.join(sources_used)}]"
     else:
-        sources_note = "[Note: No relevant context found in knowledge base or conversation history]"
         messages.append(SystemMessage(
-            content="You are a helpful AI assistant. Answer based on your general knowledge."
+            content="You are a helpful AI assistant. Answer based on your general knowledge naturally and conversationally."
         ))
 
     # Add user query
@@ -210,19 +210,30 @@ async def generate_response_with_kb(
         print(f"Error generating response: {e}")
         assistant_reply = "I apologize, but I encountered an error generating a response."
 
-    # 8. Add source transparency to response
-    final_reply = f"{sources_note}\n\n{assistant_reply}"
+    # 8. Prepare metadata (for UI display, not in message)
+    metadata = {
+        "sources_used": sources_used,
+        "kb_sources": kb_sources,
+        "kb_results_count": len(kb_results),
+        "chat_history_count": len(chat_results),
+        "using_kb": len(kb_results) > 0,
+        "using_history": len(chat_results) > 0
+    }
 
-    # 9. Store assistant response
+    # 9. Store CLEAN assistant response (no metadata in content)
     reply_emb = await get_embedding_async(assistant_reply)
     await _pgv.add_message(
         session_id=chat_id,
         role="assistant",
-        content=final_reply,
+        content=assistant_reply,  # Store clean content only
         embedding=reply_emb
     )
 
-    return final_reply
+    # 10. Return response with separate metadata
+    return {
+        "reply": assistant_reply,  # Clean, natural response
+        "metadata": metadata  # Source information for UI
+    }
 
 
 # Legacy function for backward compatibility
