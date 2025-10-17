@@ -12,7 +12,9 @@ export default function Sidebar({
   knowledgeBases,
   onKBCreated,
   onKBDeleted,
-  userId
+  userId,
+  onShowToast,  // ADD THIS
+  kbAPI         // ADD THIS
 }) {
   const [showKBModal, setShowKBModal] = useState(false)
   const [showNewChatModal, setShowNewChatModal] = useState(false)
@@ -101,14 +103,16 @@ export default function Sidebar({
       />
 
       {showKBModal && (
-        <KBManagementModal
-          knowledgeBases={knowledgeBases}
-          onClose={() => setShowKBModal(false)}
-          onKBCreated={onKBCreated}
-          onKBDeleted={onKBDeleted}
-          userId={userId}
-        />
-      )}
+      <KBManagementModal
+        knowledgeBases={knowledgeBases}
+        onClose={() => setShowKBModal(false)}
+        onKBCreated={onKBCreated}
+        onKBDeleted={onKBDeleted}
+        userId={userId}
+        onShowToast={onShowToast}  // ADD THIS
+        kbAPI={kbAPI}              // ADD THIS
+      />
+    )}
     </>
   )
 }

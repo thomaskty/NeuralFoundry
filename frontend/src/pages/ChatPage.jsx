@@ -4,6 +4,8 @@ import Sidebar from '../components/layout/Sidebar'
 import MainChatArea from '../components/layout/MainChatArea'
 import RightPanel from '../components/layout/RightPanel'
 import { chatAPI, kbAPI } from '../services/api'
+import { ToastContainer } from '../components/Toast'
+import FileExplorerModal from '../components/kb/FileExplorerModal'
 
 export default function ChatPage({ user, onLogout }) {
   const [chats, setChats] = useState([])
@@ -13,6 +15,25 @@ export default function ChatPage({ user, onLogout }) {
   const [attachedKBs, setAttachedKBs] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedModel, setSelectedModel] = useState('mistral-small-latest')
+
+  // Toast states
+  const [toasts, setToasts] = useState([])
+  const [fileExplorerKB, setFileExplorerKB] = useState(null)
+
+  // Toast functions
+  const showToast = (message, type = 'success', duration = 3000) => {
+    const id = Date.now()
+    setToasts(prev => [...prev, { id, message, type, duration }])
+  }
+
+  const removeToast = (id) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }
+
+  // Handler for opening file explorer
+  const handleOpenKBFiles = (kb) => {
+    setFileExplorerKB(kb)
+  }
 
   // Load user's chats and KBs
   useEffect(() => {
@@ -68,7 +89,6 @@ export default function ChatPage({ user, onLogout }) {
 
   const handleNewChat = async (title, systemPrompt) => {
     try {
-      // Create chat with title and system prompt
       const newChat = await chatAPI.createChat(user.id, title, systemPrompt)
       setChats([newChat, ...chats])
       setCurrentChat(newChat)
@@ -76,7 +96,7 @@ export default function ChatPage({ user, onLogout }) {
       setAttachedKBs([])
     } catch (error) {
       console.error('Failed to create chat:', error)
-      throw error // Re-throw so modal can handle it
+      throw error
     }
   }
 
@@ -99,7 +119,6 @@ export default function ChatPage({ user, onLogout }) {
   const handleSendMessage = async (content) => {
     if (!currentChat) return
 
-    // Optimistic update
     const userMessage = {
       id: Date.now(),
       role: 'user',
@@ -111,7 +130,6 @@ export default function ChatPage({ user, onLogout }) {
     try {
       const response = await chatAPI.sendMessage(currentChat.chat_id, content)
 
-      // Add assistant response
       const assistantMessage = {
         id: Date.now() + 1,
         role: 'assistant',
@@ -123,7 +141,6 @@ export default function ChatPage({ user, onLogout }) {
       setMessages(prev => [...prev, assistantMessage])
     } catch (error) {
       console.error('Failed to send message:', error)
-      // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m.id !== userMessage.id))
     }
   }
@@ -182,6 +199,8 @@ export default function ChatPage({ user, onLogout }) {
           onKBCreated={handleKBCreated}
           onKBDeleted={handleKBDeleted}
           userId={user.id}
+          onShowToast={showToast}
+          kbAPI={kbAPI}
         />
 
         <MainChatArea
@@ -197,8 +216,21 @@ export default function ChatPage({ user, onLogout }) {
           onToggleKB={handleToggleKB}
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
+          onOpenKBFiles={handleOpenKBFiles}
         />
       </div>
+
+      {/* Toast Notifications */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
+
+      {/* File Explorer Modal */}
+      {fileExplorerKB && (
+        <FileExplorerModal
+          kb={fileExplorerKB}
+          onClose={() => setFileExplorerKB(null)}
+          onShowToast={showToast}
+        />
+      )}
     </div>
   )
 }

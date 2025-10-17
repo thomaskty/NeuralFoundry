@@ -1,11 +1,12 @@
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, FolderOpen } from 'lucide-react'
 
-export default function RightPanel({ 
-  knowledgeBases, 
-  attachedKBs, 
+export default function RightPanel({
+  knowledgeBases,
+  attachedKBs,
   onToggleKB,
   selectedModel,
-  onModelChange
+  onModelChange,
+  onOpenKBFiles
 }) {
   const models = [
     { id: 'mistral-small-latest', name: 'Mistral Small' },
@@ -19,7 +20,6 @@ export default function RightPanel({
 
   return (
     <div className="w-80 bg-gray-50 border-l border-gray-200 flex flex-col">
-      {/* LLM Selector */}
       <div className="p-4 border-b border-gray-200">
         <label className="block text-sm font-semibold text-gray-700 mb-2">
           LLM Model
@@ -40,7 +40,6 @@ export default function RightPanel({
         </div>
       </div>
 
-      {/* Knowledge Base Selector */}
       <div className="flex-1 overflow-y-auto p-4">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">
           Knowledge Bases
@@ -56,9 +55,9 @@ export default function RightPanel({
               const isAttached = isKBAttached(kb.kb_id)
 
               return (
-                <label
+                <div
                   key={kb.kb_id}
-                  className={`block p-3 rounded-lg border-2 cursor-pointer transition ${
+                  className={`block p-3 rounded-lg border-2 transition ${
                     isAttached
                       ? 'bg-blue-50 border-blue-300'
                       : 'bg-white border-gray-200 hover:border-gray-300'
@@ -69,7 +68,7 @@ export default function RightPanel({
                       type="checkbox"
                       checked={isAttached}
                       onChange={() => onToggleKB(kb.kb_id, isAttached)}
-                      className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                      className="mt-1 w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-800 truncate">
@@ -80,9 +79,19 @@ export default function RightPanel({
                           {kb.description}
                         </p>
                       )}
+                      <p className="text-xs text-gray-400 mt-1">
+                        {kb.document_count || 0} {kb.document_count === 1 ? 'document' : 'documents'}
+                      </p>
                     </div>
+                    <button
+                      onClick={() => onOpenKBFiles(kb)}
+                      className="flex-shrink-0 p-1.5 hover:bg-blue-100 rounded-lg transition"
+                      title="View files"
+                    >
+                      <FolderOpen size={16} className="text-blue-600" />
+                    </button>
                   </div>
-                </label>
+                </div>
               )
             })}
           </div>

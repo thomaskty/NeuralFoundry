@@ -1,41 +1,38 @@
 import { useState } from 'react'
 import { X, Plus, Upload, Trash2, Loader2, Database } from 'lucide-react'
-import { kbAPI } from '../../services/api'
 
-export default function KBManagementModal({ 
-  knowledgeBases, 
-  onClose, 
-  onKBCreated, 
+export default function KBManagementModal({
+  knowledgeBases,
+  onClose,
+  onKBCreated,
   onKBDeleted,
-  userId 
+  userId,
+  onShowToast,
+  kbAPI
 }) {
-  const [view, setView] = useState('list') // 'list' | 'create' | 'upload'
+  const [view, setView] = useState('list')
   const [selectedKB, setSelectedKB] = useState(null)
-
-  // Create KB state
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [creating, setCreating] = useState(false)
-
-  // Upload state
   const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
 
   const handleCreateKB = async (e) => {
     e.preventDefault()
-
     if (!title.trim()) return
 
     setCreating(true)
     try {
       const newKB = await kbAPI.createKB(userId, title.trim(), description.trim())
       onKBCreated(newKB)
+      onShowToast(`Knowledge base "${title.trim()}" created successfully!`, 'success')
       setTitle('')
       setDescription('')
       setView('list')
     } catch (error) {
       console.error('Failed to create KB:', error)
-      alert('Failed to create knowledge base')
+      onShowToast('Failed to create knowledge base', 'error')
     } finally {
       setCreating(false)
     }
@@ -43,21 +40,20 @@ export default function KBManagementModal({
 
   const handleUploadDocument = async (e) => {
     e.preventDefault()
-
     if (!file || !selectedKB) return
 
     setUploading(true)
     try {
       await kbAPI.uploadDocument(selectedKB.kb_id, file)
+      onShowToast(`${file.name} uploaded successfully!`, 'success')
       setFile(null)
       setView('list')
-      alert('Document uploaded successfully! Processing in background...')
     } catch (error) {
       console.error('Failed to upload document:', error)
       if (error.response?.status === 409) {
-        alert('A file with this name already exists in this knowledge base')
+        onShowToast('A file with this name already exists', 'error')
       } else {
-        alert('Failed to upload document')
+        onShowToast('Failed to upload document', 'error')
       }
     } finally {
       setUploading(false)
@@ -70,16 +66,16 @@ export default function KBManagementModal({
     try {
       await kbAPI.deleteKB(kbId)
       onKBDeleted(kbId)
+      onShowToast('Knowledge base deleted successfully', 'success')
     } catch (error) {
       console.error('Failed to delete KB:', error)
-      alert('Failed to delete knowledge base')
+      onShowToast('Failed to delete knowledge base', 'error')
     }
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center gap-3">
             <Database className="text-blue-600" size={24} />
@@ -95,11 +91,9 @@ export default function KBManagementModal({
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
           {view === 'list' && (
             <div className="space-y-4">
-              {/* Action Buttons */}
               <div className="flex gap-3">
                 <button
                   onClick={() => setView('create')}
@@ -110,7 +104,6 @@ export default function KBManagementModal({
                 </button>
               </div>
 
-              {/* KB List */}
               <div className="space-y-3">
                 <h3 className="font-semibold text-gray-700">Your Knowledge Bases</h3>
 
@@ -164,7 +157,7 @@ export default function KBManagementModal({
           )}
 
           {view === 'create' && (
-            <form onSubmit={handleCreateKB} className="space-y-4">
+            <div className="space-y-4">
               <button
                 type="button"
                 onClick={() => setView('list')}
@@ -201,7 +194,7 @@ export default function KBManagementModal({
               </div>
 
               <button
-                type="submit"
+                onClick={handleCreateKB}
                 disabled={creating || !title.trim()}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition"
               >
@@ -217,11 +210,11 @@ export default function KBManagementModal({
                   </>
                 )}
               </button>
-            </form>
+            </div>
           )}
 
           {view === 'upload' && selectedKB && (
-            <form onSubmit={handleUploadDocument} className="space-y-4">
+            <div className="space-y-4">
               <button
                 type="button"
                 onClick={() => {
@@ -266,7 +259,7 @@ export default function KBManagementModal({
               )}
 
               <button
-                type="submit"
+                onClick={handleUploadDocument}
                 disabled={uploading || !file}
                 className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition"
               >
@@ -282,7 +275,7 @@ export default function KBManagementModal({
                   </>
                 )}
               </button>
-            </form>
+            </div>
           )}
         </div>
       </div>
