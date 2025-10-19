@@ -1,4 +1,4 @@
-# NeuralFoundry – Release Notes (Current Stage)
+# NeuralFoundry : All in one assistant
 
 ## 🟢 Key Features Implemented
 
@@ -33,14 +33,7 @@
 - Vector embeddings stored using `pgvector`.
 - `ChatSession` ↔ `User` relationship implemented.
 - `ChatMessage` ↔ `ChatSession` relationship implemented.
-
 ---
-
-## 📝 Summary
-This release establishes the **foundation for a multi-user chat platform with persistent memory**, enabling contextual AI responses based on per-chat conversation history.
-
-
-### Neural Foundry - Setup Instructions
 
 #### Setting up postgresql with Docker
 ```commandline
@@ -54,33 +47,6 @@ This release establishes the **foundation for a multi-user chat platform with pe
 5. docker run --name NeuralFoundryPgAdminServer -p 5050:80 -e PGADMIN_DEFAULT_EMAIL=<> -e PGADMIN_DEFAULT_PASSWORD=<> -d dpage/pgadmin4
 6. docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' NeuralFoundryPostgreServer
 7. register pgadmin with the above ip address, username(postgres) and password(above password) and name postgres-neural-foundry
-```
-
-#### Useful Docker Commands
-```commandline
-docker pull <image name> ? to pull image from docker hub
-docker run -it --name <container name> -p <host port>:<container port> <image name> ? to run a container
-docker stop <container id or name> ? to stop container
-docker start <container id or name> ? to start container
-docker restart <container id or name> ? to restart container
-docker ps -a ? to see all containers
-docker images ? to see all images
-docker rm <container id or name> ? to remove container
-docker rmi <image id or name> ? to remove image
-docker logs <container id or name> ? to see logs of container
-docker exec -it <container id or name> bash ? to get into the container bash terminal
-docker stats <container id or name> ? to see stats of container
-docker network ls ? to see all networks
-docker volume ls ? to see all volumes
-docker system prune ? to remove all unused data
-```
-
-#### Useful PostgreSQL Commands
-```commandline
-\l ? to see all databases
-\c <database name> ? to connect to a database
-\dt ? to see all tables in the connected database
-\d <table name> ? to see the structure of a table
 ```
 
 ## pgvector setup
