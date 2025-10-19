@@ -1,0 +1,210 @@
+{
+  "user_id": "67c98f94-991b-48fa-bf7c-09daa682d3f9",
+  "kb_id": "c0351960-2f23-4ff4-bc58-aaac2f4b9c51",
+  "chat_ids": [
+    "35a8309c-44b0-4a3e-9fc9-9356bf94cbcf",
+    "ee362047-b082-4c76-b415-8dc4bac1f0a6",
+    "cc649a83-fdce-4a36-8812-432bb80c3609",
+    "89690f1d-5206-4378-8792-48fd63c6a2f1"
+  ],
+  "tricky_questions": [
+    {
+      "question": "What's the problem with using mutable default arguments in Python?",
+      "expected_kb": "python_antipatterns.txt",
+      "expected_terms": [
+        "mutable",
+        "default",
+        "evaluated once",
+        "shared state"
+      ]
+    },
+    {
+      "question": "Should I use threading or multiprocessing for CPU-intensive tasks in Python?",
+      "expected_kb": "python_antipatterns.txt",
+      "expected_terms": [
+        "GIL",
+        "multiprocessing",
+        "CPU-bound"
+      ]
+    },
+    {
+      "question": "What's the correct order for adding middleware in FastAPI?",
+      "expected_kb": "fastapi_advanced.txt",
+      "expected_terms": [
+        "CORS",
+        "first",
+        "order matters"
+      ]
+    },
+    {
+      "question": "What's the recommended pool size for database connections in production?",
+      "expected_kb": "fastapi_advanced.txt",
+      "expected_terms": [
+        "min=10",
+        "max=50",
+        "connection pooling"
+      ]
+    },
+    {
+      "question": "Should I use bind mounts or named volumes in production Docker?",
+      "expected_kb": "docker_best_practices.txt",
+      "expected_terms": [
+        "named volumes",
+        "production",
+        "bind mounts",
+        "development"
+      ]
+    },
+    {
+      "question": "How should I structure my Dockerfile for optimal caching?",
+      "expected_kb": "docker_best_practices.txt",
+      "expected_terms": [
+        "least to most",
+        "base image",
+        "dependencies",
+        "app code"
+      ]
+    },
+    {
+      "question": "What's a good similarity threshold for RAG retrieval?",
+      "expected_kb": "rag_system_design.txt",
+      "expected_terms": [
+        "0.70",
+        "0.85",
+        "threshold",
+        "precision"
+      ]
+    },
+    {
+      "question": "What's the difference between choreography and orchestration in Saga pattern?",
+      "expected_kb": "microservices_patterns.txt",
+      "expected_terms": [
+        "event-driven",
+        "centralized",
+        "Saga"
+      ]
+    },
+    {
+      "question": "When should I use CQRS pattern?",
+      "expected_kb": "microservices_patterns.txt",
+      "expected_terms": [
+        "read",
+        "write",
+        "different",
+        "separate models"
+      ]
+    },
+    {
+      "question": "What's the recommended chunk size for RAG systems?",
+      "expected_kb": "rag_system_design.txt",
+      "expected_terms": [
+        "500-1000",
+        "tokens",
+        "overlap",
+        "100-200"
+      ]
+    }
+  ],
+  "conversations": [
+    {
+      "title": "FastAPI Authentication Discussion",
+      "messages": [
+        {
+          "role": "user",
+          "content": "How should I implement authentication in FastAPI?"
+        },
+        {
+          "role": "assistant",
+          "content": "For FastAPI authentication, I recommend using OAuth2 with JWT tokens. Use OAuth2PasswordBearer for token-based auth and always hash passwords with bcrypt. Never store plain text passwords."
+        },
+        {
+          "role": "user",
+          "content": "What about middleware order?"
+        },
+        {
+          "role": "assistant",
+          "content": "Middleware order is crucial! CORS middleware should be added first, followed by authentication middleware, then other middleware. The order determines the execution sequence."
+        },
+        {
+          "role": "user",
+          "content": "Can you remind me about the password hashing?"
+        }
+      ]
+    },
+    {
+      "title": "Python Performance Optimization",
+      "messages": [
+        {
+          "role": "user",
+          "content": "My Python string concatenation is slow. What's wrong?"
+        },
+        {
+          "role": "assistant",
+          "content": "String concatenation in loops is O(n\u00b2) because strings are immutable in Python. Use ''.join(items) instead for O(n) performance."
+        },
+        {
+          "role": "user",
+          "content": "What about the GIL? Should I use threading?"
+        },
+        {
+          "role": "assistant",
+          "content": "The GIL means only one thread executes Python bytecode at a time. For CPU-bound tasks, use multiprocessing. For I/O-bound tasks, threading or asyncio works fine."
+        },
+        {
+          "role": "user",
+          "content": "Tell me more about the string concatenation issue"
+        }
+      ]
+    },
+    {
+      "title": "Docker Production Setup",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What are the most important Docker security practices?"
+        },
+        {
+          "role": "assistant",
+          "content": "Key Docker security practices: 1) Never run as root, 2) Use minimal base images, 3) Scan for vulnerabilities, 4) Keep images updated, 5) Don't include secrets in images."
+        },
+        {
+          "role": "user",
+          "content": "Should I use bind mounts or volumes?"
+        },
+        {
+          "role": "assistant",
+          "content": "Use named volumes for production, not bind mounts. Bind mounts are for development only. Named volumes are more secure and portable."
+        },
+        {
+          "role": "user",
+          "content": "What about multi-stage builds?"
+        }
+      ]
+    },
+    {
+      "title": "RAG System Architecture",
+      "messages": [
+        {
+          "role": "user",
+          "content": "Which vector database should I use for RAG?"
+        },
+        {
+          "role": "assistant",
+          "content": "For small-medium scale, pgvector is sufficient. For large scale (>10M vectors), use dedicated vector DBs like Pinecone or Qdrant. pgvector offers simplicity, while dedicated DBs offer better performance."
+        },
+        {
+          "role": "user",
+          "content": "What's a good chunking strategy?"
+        },
+        {
+          "role": "assistant",
+          "content": "Recommended chunking: 500-1000 tokens with 100-200 token overlap. Preserve paragraph boundaries. Semantic chunking gives better quality but is slower than fixed-size chunking."
+        },
+        {
+          "role": "user",
+          "content": "How do I allocate my context window?"
+        }
+      ]
+    }
+  ]
+}
