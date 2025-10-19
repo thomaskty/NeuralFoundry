@@ -1,7 +1,4 @@
-# NeuralFoundry : All in one assistant
-
-## 🟢 Key Features Implemented
-
+# NeuralFoundry
 ### 1. Multi-user Support
 - Each user has a unique ID and profile.
 - Users can create, view, and manage multiple chat sessions.
@@ -48,7 +45,6 @@
 6. docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' NeuralFoundryPostgreServer
 7. register pgadmin with the above ip address, username(postgres) and password(above password) and name postgres-neural-foundry
 ```
-
 ## pgvector setup
 ```commandline
 docker pull postgres:16
@@ -58,9 +54,4 @@ docker run --name pgvector -e POSTGRES_PASSWORD=<> -p 5433:5432 -d pgvector/pgve
 docker network create pgnet
 docker network connect pgnet pgvector
 docker run -d --name pgadmin --network pgnet -e PGADMIN_DEFAULT_EMAIL=<> -e PGADMIN_DEFAULT_PASSWORD=<> -p 5050:80 dpage/pgadmin4
-```
-
-## running the bash script 
-```commandline
-chmod +x run_all.sh; ./run_all.sh
 ```
