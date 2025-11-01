@@ -55,3 +55,9 @@ docker network create pgnet
 docker network connect pgnet pgvector
 docker run -d --name pgadmin --network pgnet -e PGADMIN_DEFAULT_EMAIL=<> -e PGADMIN_DEFAULT_PASSWORD=<> -p 5050:80 dpage/pgadmin4
 ```
+## Howto run 
+```commandline
+uvicorn main:app --reload 
+npm run dev
+
+```

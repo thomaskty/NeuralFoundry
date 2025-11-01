@@ -2,34 +2,14 @@
 import asyncio
 from typing import Optional, List, Dict
 from datetime import datetime, timezone
-from langchain_core.messages import HumanMessage, SystemMessage
-from langgraph.prebuilt import create_react_agent
-from langchain_mistralai import ChatMistralAI
-from langchain_ollama import ChatOllama
-
+from openai import AsyncOpenAI
 from app.core.config import settings
 from app.services.vector_stores.pgvector_vs import PgVectorStore
 from app.services.wrappers.async_embedding import get_embedding_async
 
 # Initialize components (module-level singletons)
 _pgv = PgVectorStore()
-
-_llm = ChatMistralAI(
-    api_key=settings.MISTRAL_API_KEY,
-    model_name=settings.DEFAULT_LLM_MODEL,
-    temperature=settings.LLM_TEMPERATURE,
-    max_tokens=settings.LLM_MAX_TOKENS
-)
-
-# _llm = ChatOllama(
-#     model=settings.DEFAULT_LLM_MODEL,
-#     temperature=settings.LLM_TEMPERATURE,
-#     num_predict=settings.LLM_MAX_TOKENS,
-#     base_url=settings.OLLAMA_BASE_URL or "http://localhost:11434"
-# )
-
-
-_agent = create_react_agent(model=_llm, tools=[])
+_openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 def _format_relative_time(created_at) -> str:
@@ -64,10 +44,11 @@ def _format_relative_time(created_at) -> str:
     except:
         return "recently"
 
+
 async def _search_kb_if_attached(user_emb, kb_ids, max_kb_per_kb, kb_chunk_threshold):
     """Helper function to handle KB search with proper async handling"""
     if not kb_ids:
-        return []  # ← Returns empty list if no KBs
+        return []
     return await _pgv.search_kb_chunks(
         vec=user_emb,
         kb_ids=kb_ids,
@@ -75,20 +56,17 @@ async def _search_kb_if_attached(user_emb, kb_ids, max_kb_per_kb, kb_chunk_thres
         threshold=kb_chunk_threshold
     )
 
+
 def _build_hybrid_context(
         recent_messages: List[Dict],
         older_messages: List[Dict],
         kb_results: List[Dict],
+        attachment_results: List[Dict],  # NEW
         custom_system_prompt: Optional[str]
 ) -> str:
     """
     Build structured context with natural conversation format and metadata.
-
-    Format:
-    - Chat's custom system prompt (if exists)
-    - Recent conversation (last 10 messages)
-    - Relevant past conversation (older retrieved messages)
-    - Knowledge base context (if available)
+    Now includes chat attachments!
     """
     context_parts = []
 
@@ -99,9 +77,9 @@ def _build_hybrid_context(
 
     # Recent Conversation Section
     if recent_messages:
-        context_parts.append("━" * 60)
+        context_parts.append("=" * 60)
         context_parts.append("RECENT CONVERSATION (Last {} messages)".format(len(recent_messages)))
-        context_parts.append("━" * 60)
+        context_parts.append("=" * 60)
         context_parts.append("")
 
         for msg in recent_messages:
@@ -113,9 +91,9 @@ def _build_hybrid_context(
 
     # Older Relevant Conversation Section
     if older_messages:
-        context_parts.append("━" * 60)
+        context_parts.append("=" * 60)
         context_parts.append("RELEVANT PAST CONVERSATION (From earlier messages)")
-        context_parts.append("━" * 60)
+        context_parts.append("=" * 60)
         context_parts.append("")
 
         for msg in older_messages:
@@ -126,11 +104,28 @@ def _build_hybrid_context(
             context_parts.append(msg['content'])
             context_parts.append("")
 
+    # Chat Attachments Context Section (NEW)
+    if attachment_results:
+        context_parts.append("=" * 60)
+        context_parts.append("ATTACHED FILES CONTEXT")
+        context_parts.append("=" * 60)
+        context_parts.append("")
+
+        for chunk in attachment_results:
+            filename = chunk.get("metadata", {}).get("filename", "Unknown file")
+            similarity = chunk.get("similarity", 0)
+
+            context_parts.append(f"📎 From attached file: \"{filename}\"")
+            context_parts.append(f"   Similarity: {similarity:.2f}")
+            context_parts.append("")
+            context_parts.append(chunk['text'])
+            context_parts.append("")
+
     # Knowledge Base Context Section
     if kb_results:
-        context_parts.append("━" * 60)
+        context_parts.append("=" * 60)
         context_parts.append("KNOWLEDGE BASE CONTEXT")
-        context_parts.append("━" * 60)
+        context_parts.append("=" * 60)
         context_parts.append("")
 
         for chunk in kb_results:
@@ -145,14 +140,14 @@ def _build_hybrid_context(
             context_parts.append("")
 
     # Instructions
-    context_parts.append("━" * 60)
+    context_parts.append("=" * 60)
     context_parts.append("")
     context_parts.append(
         "Instructions:\n"
         "Based on the above context, answer the user's current question "
         "naturally and conversationally. Use the information provided but "
         "respond as if you naturally know this. Do not mention that you're "
-        "using conversation history or knowledge bases."
+        "using conversation history, knowledge bases, or attached files."
     )
 
     return "\n".join(context_parts)
@@ -168,12 +163,8 @@ async def generate_response_with_kb(
         max_kb_per_kb: Optional[int] = None
 ) -> Dict:
     """
-    Generate response using hybrid context approach:
-    - Recent conversation (last N messages - always included)
-    - Older relevant messages (semantic retrieval from older messages)
-    - Knowledge base chunks (if KBs attached)
-
-    Returns dict with reply and metadata.
+    Generate response using hybrid context approach with OpenAI.
+    Now includes chat attachments in the context!
     """
     # Use settings defaults
     chat_history_threshold = chat_history_threshold or settings.CHAT_HISTORY_THRESHOLD
@@ -181,6 +172,13 @@ async def generate_response_with_kb(
     recent_window = recent_window or settings.RECENT_MESSAGE_WINDOW
     older_retrieval = older_retrieval or settings.OLDER_MESSAGE_RETRIEVAL
     max_kb_per_kb = max_kb_per_kb or settings.MAX_KB_CHUNKS_PER_KB
+
+    # 🐛 DEBUG: Print query
+    print(f"\n{'=' * 60}")
+    print(f"🐛 NEW QUERY: {user_text}")
+    print(f"🐛 Chat ID: {chat_id}")
+    print(f"🐛 KB Threshold: {kb_chunk_threshold}")
+    print(f"{'=' * 60}\n")
 
     # 1. Generate embedding for user query
     user_emb = await get_embedding_async(user_text)
@@ -199,8 +197,12 @@ async def generate_response_with_kb(
     # 4. Get attached KB IDs
     kb_ids = await _pgv.get_attached_kb_ids(chat_id)
 
-    # 5. Parallel fetch: Recent messages + Older messages + KB chunks
-    recent_messages, older_messages, kb_results = await asyncio.gather(
+    # 🐛 DEBUG: Print KB attachment info
+    print(f"🐛 Attached KB IDs: {kb_ids}")
+    print(f"🐛 Number of KBs attached: {len(kb_ids)}")
+
+    # 5. Parallel fetch: Recent messages + Older messages + KB chunks + Attachments (NEW)
+    recent_messages, older_messages, kb_results, attachment_results = await asyncio.gather(
         _pgv.get_recent_messages(chat_id, limit=recent_window),
         _pgv.search_similar_excluding_recent(
             vec=user_emb,
@@ -210,50 +212,88 @@ async def generate_response_with_kb(
             threshold=chat_history_threshold
         ),
         _search_kb_if_attached(user_emb, kb_ids, max_kb_per_kb, kb_chunk_threshold),
+        _pgv.search_chat_attachments(user_emb, chat_id, limit=3, threshold=kb_chunk_threshold),  # NEW
         return_exceptions=True
     )
 
     # Handle errors
     if isinstance(recent_messages, Exception):
-        print(f"Error fetching recent messages: {recent_messages}")
+        print(f"❌ Error fetching recent messages: {recent_messages}")
         recent_messages = []
 
     if isinstance(older_messages, Exception):
-        print(f"Error fetching older messages: {older_messages}")
+        print(f"❌ Error fetching older messages: {older_messages}")
         older_messages = []
 
     if isinstance(kb_results, Exception):
-        print(f"Error fetching KB chunks: {kb_results}")
+        print(f"❌ Error fetching KB chunks: {kb_results}")
         kb_results = []
 
-    # 6. Build structured context
+    if isinstance(attachment_results, Exception):
+        print(f"❌ Error fetching attachments: {attachment_results}")
+        attachment_results = []
+
+    # 🐛 DEBUG: Print retrieval results
+    print(f"\n{'=' * 60}")
+    print(f"🐛 RETRIEVAL RESULTS:")
+    print(f"   - Recent messages: {len(recent_messages)}")
+    print(f"   - Older messages: {len(older_messages)}")
+    print(f"   - KB chunks: {len(kb_results)}")
+    print(f"   - Attachment chunks: {len(attachment_results)}")  # NEW
+
+    if kb_results:
+        print(f"\n🐛 KB RESULTS:")
+        for i, chunk in enumerate(kb_results[:3]):
+            print(f"   [{i + 1}] Similarity: {chunk.get('similarity', 0):.4f}")
+            print(f"       KB: {chunk.get('kb_title', 'Unknown')}")
+            print(f"       File: {chunk.get('filename', 'Unknown')}")
+            print(f"       Text preview: {chunk['text'][:100]}...")
+    else:
+        print(f"   ⚠️  NO KB RESULTS FOUND!")
+        if kb_ids:
+            print(f"   ⚠️  KBs are attached but no chunks matched threshold {kb_chunk_threshold}")
+        else:
+            print(f"   ⚠️  No KBs are attached to this chat!")
+
+    # NEW: Debug attachment results
+    if attachment_results:
+        print(f"\n🐛 ATTACHMENT RESULTS:")
+        for i, chunk in enumerate(attachment_results[:3]):
+            print(f"   [{i + 1}] Similarity: {chunk.get('similarity', 0):.4f}")
+            print(f"       File: {chunk.get('metadata', {}).get('filename', 'Unknown')}")
+            print(f"       Text preview: {chunk['text'][:100]}...")
+    else:
+        print(f"   ℹ️  No attachments found in this chat")
+
+    print(f"{'=' * 60}\n")
+
+    # 6. Build structured context (now includes attachments)
     system_content = _build_hybrid_context(
         recent_messages=recent_messages,
         older_messages=older_messages,
         kb_results=kb_results,
+        attachment_results=attachment_results,  # NEW
         custom_system_prompt=custom_system_prompt
     )
 
-    # 7. Prepare messages for LLM
-    messages = [
-        SystemMessage(content=system_content),
-        HumanMessage(content=user_text)
-    ]
-
-    # 8. Generate response
+    # 7. Generate response using OpenAI
     assistant_reply = ""
     try:
-        async for chunk in _agent.astream({"messages": messages}):
-            if "agent" in chunk:
-                for message in chunk["agent"]["messages"]:
-                    if message.content:
-                        assistant_reply = message.content
-                        break
+        response = await _openai_client.chat.completions.create(
+            model=settings.DEFAULT_LLM_MODEL,
+            messages=[
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": user_text}
+            ],
+            temperature=settings.LLM_TEMPERATURE,
+            max_tokens=settings.LLM_MAX_TOKENS
+        )
+        assistant_reply = response.choices[0].message.content.strip()
     except Exception as e:
-        print(f"Error generating response: {e}")
+        print(f"❌ Error generating response: {e}")
         assistant_reply = "I apologize, but I encountered an error generating a response."
 
-    # 9. Prepare metadata
+    # 8. Prepare metadata (now includes attachments)
     kb_sources = []
     for chunk in kb_results:
         kb_title = chunk.get("kb_title", "Unknown")
@@ -262,23 +302,34 @@ async def generate_response_with_kb(
         if source_info not in kb_sources:
             kb_sources.append(source_info)
 
+    attachment_sources = []  # NEW
+    for chunk in attachment_results:
+        filename = chunk.get("metadata", {}).get("filename", "Unknown")
+        if filename not in attachment_sources:
+            attachment_sources.append(filename)
+
     sources_used = []
     if recent_messages or older_messages:
         sources_used.append("conversation history")
     if kb_results:
         sources_used.append("knowledge base")
+    if attachment_results:
+        sources_used.append("attached files")  # NEW
 
     metadata = {
         "sources_used": sources_used,
         "kb_sources": kb_sources,
+        "attachment_sources": attachment_sources,  # NEW
         "recent_messages_count": len(recent_messages),
         "older_messages_count": len(older_messages),
         "kb_results_count": len(kb_results),
+        "attachment_results_count": len(attachment_results),  # NEW
         "using_kb": len(kb_results) > 0,
+        "using_attachments": len(attachment_results) > 0,  # NEW
         "using_history": len(recent_messages) > 0 or len(older_messages) > 0
     }
 
-    # 10. Store clean assistant response
+    # 9. Store clean assistant response
     reply_emb = await get_embedding_async(assistant_reply)
     await _pgv.add_message(
         session_id=chat_id,
@@ -287,61 +338,8 @@ async def generate_response_with_kb(
         embedding=reply_emb
     )
 
-    # 11. Return response with metadata
+    # 10. Return response with metadata
     return {
         "reply": assistant_reply,
         "metadata": metadata
     }
-
-
-# Legacy function for backward compatibility
-async def generate_response(
-        session_id: str,
-        user_text: str,
-        similarity_limit: int = 5,
-        similarity_threshold: Optional[float] = None
-) -> str:
-    """Legacy chat response function (without KB support)."""
-    user_emb = await get_embedding_async(user_text)
-
-    await _pgv.add_message(
-        session_id=session_id,
-        role="user",
-        content=user_text,
-        embedding=user_emb
-    )
-
-    similar = await _pgv.search_similar(
-        user_emb,
-        limit=similarity_limit,
-        threshold=similarity_threshold,
-        session_filter=session_id
-    )
-
-    similar_texts = [f"- ({r['role']}) {r['content']}" for r in similar]
-    context = "\n".join(similar_texts)
-
-    messages = []
-    if context:
-        messages.append(
-            SystemMessage(content=f"Relevant past conversation (most similar):\n{context}")
-        )
-    messages.append(HumanMessage(content=user_text))
-
-    async for chunk in _agent.astream({"messages": messages}):
-        if "agent" in chunk:
-            for message in chunk["agent"]["messages"]:
-                if message.content:
-                    assistant_reply = message.content
-
-                    reply_emb = await get_embedding_async(assistant_reply)
-                    await _pgv.add_message(
-                        session_id=session_id,
-                        role="assistant",
-                        content=assistant_reply,
-                        embedding=reply_emb
-                    )
-
-                    return assistant_reply
-
-    return "No response."

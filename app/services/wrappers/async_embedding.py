@@ -1,15 +1,22 @@
-import asyncio
-from app.services.embedding.huggingface_embedding import EmbeddingClient
+# app/services/wrappers/async_embedding.py
 import numpy as np
+from app.services.embedding.openai_embedding import get_embedding_client
 
-_embedding_client = EmbeddingClient()
+# Use OpenAI instead of HuggingFace
+_embedding_client = get_embedding_client()
+
 
 async def get_embedding_async(text: str) -> np.ndarray:
-    # runs SentenceTransformer.encode in a thread
-    return await asyncio.to_thread(_embedding_client.get_embedding, text)
+    """
+    Get embedding for a single text using OpenAI.
+    Returns 1536-dimensional vector.
+    """
+    return await _embedding_client.get_embedding(text)
+
 
 async def get_batch_embeddings_async(texts: list[str]) -> list[np.ndarray]:
-    return await asyncio.to_thread(_embedding_client.get_batch_embeddings, texts)
-
-
-
+    """
+    Get embeddings for multiple texts using OpenAI batch API.
+    More efficient than calling get_embedding_async in a loop.
+    """
+    return await _embedding_client.get_batch_embeddings(texts)

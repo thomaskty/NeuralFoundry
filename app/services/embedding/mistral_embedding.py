@@ -6,6 +6,7 @@ import numpy as np
 
 class EmbeddingClient:
     embedding_dim = 1024  # dimension of the embeddings
+
     def __init__(self):
         self.api_key = settings.MISTRAL_API_KEY
         self.model = "mistral-embed"

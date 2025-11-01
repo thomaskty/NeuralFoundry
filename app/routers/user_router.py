@@ -10,7 +10,7 @@ router = APIRouter()
 
 
 # -------------------------------------------------------------------------
-# 1. Login - Existing users only
+# 1. Login - Auto-create if new username (UPDATED)
 # -------------------------------------------------------------------------
 @router.post("/users/login", status_code=status.HTTP_200_OK)
 async def login_user(
@@ -18,27 +18,39 @@ async def login_user(
         db: AsyncSession = Depends(get_db)
 ):
     """
-    Login with existing username only.
-    Returns user data if found, 404 if not.
+    Login with username. Auto-creates user if username doesn't exist.
+    This enables self-registration on first login.
     """
+    # Check if user exists
     result = await db.execute(select(User).where(User.username == username))
     user = result.scalars().first()
 
-    if not user:
-        raise HTTPException(
-            status_code=404,
-            detail="User not found. Please contact administrator to create an account."
-        )
+    if user:
+        # User exists - normal login
+        return {
+            "id": str(user.id),
+            "username": user.username,
+            "created_at": user.created_at,
+            "is_new_user": False
+        }
+
+    # User doesn't exist - create new user automatically
+    new_user = User(username=username)
+    db.add(new_user)
+    await db.commit()
+    await db.refresh(new_user)
 
     return {
-        "id": str(user.id),
-        "username": user.username,
-        "created_at": user.created_at
+        "id": str(new_user.id),
+        "username": new_user.username,
+        "created_at": new_user.created_at,
+        "is_new_user": True,  # Flag to show "Welcome!" message in frontend
+        "message": "Account created successfully!"
     }
 
 
 # -------------------------------------------------------------------------
-# 2. Create user (admin only - for testing)
+# 2. Create user (admin only - for manual creation if needed)
 # -------------------------------------------------------------------------
 @router.post("/users", status_code=status.HTTP_201_CREATED)
 async def create_user(
@@ -46,8 +58,8 @@ async def create_user(
         db: AsyncSession = Depends(get_db)
 ):
     """
-    Create a new user.
-    In production, this should be admin-only or part of registration flow.
+    Manually create a new user (admin endpoint).
+    Optional - since login now auto-creates users.
     """
     # Check if username already exists
     existing = await db.execute(select(User).where(User.username == payload.username))
@@ -74,9 +86,7 @@ async def create_user(
 # -------------------------------------------------------------------------
 @router.get("/users")
 async def list_users(db: AsyncSession = Depends(get_db)):
-    """
-    List all users in the system.
-    """
+    """List all users in the system."""
     result = await db.execute(select(User))
     users = result.scalars().all()
 
@@ -95,9 +105,7 @@ async def list_users(db: AsyncSession = Depends(get_db)):
 # -------------------------------------------------------------------------
 @router.get("/users/{user_id}")
 async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
-    """
-    Get user details by ID.
-    """
+    """Get user details by ID."""
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalars().first()
 

@@ -9,6 +9,7 @@ from pgvector.sqlalchemy import Vector
 
 Base = declarative_base()
 
+
 # -------------------------------------------------------------------------
 # USERS
 # -------------------------------------------------------------------------
@@ -40,6 +41,7 @@ class ChatSession(Base):
     user = relationship("User", back_populates="chats")
     messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
     attached_kbs = relationship("ChatSessionKB", back_populates="chat", cascade="all, delete-orphan")
+    attachments = relationship("ChatAttachment", back_populates="chat", cascade="all, delete-orphan")
 
 
 class ChatMessage(Base):
@@ -49,10 +51,65 @@ class ChatMessage(Base):
     session_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False)
     role = Column(String(20), nullable=False)  # 'user' | 'assistant'
     content = Column(Text, nullable=False)
-    embedding = Column(Vector(384), nullable=True)  # matches e5-small-v2
+    embedding = Column(Vector(1536), nullable=True)  # Changed: 384 → 1536 for OpenAI
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     session = relationship("ChatSession", back_populates="messages")
+
+
+# -------------------------------------------------------------------------
+# CHAT ATTACHMENTS SYSTEM
+# -------------------------------------------------------------------------
+class ChatAttachment(Base):
+    """
+    Temporary file attachments for individual chats.
+    Similar to KBDocument but for ephemeral, per-chat files.
+    """
+    __tablename__ = "chat_attachments"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    chat_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # File information
+    filename = Column(String, nullable=False)
+    mime_type = Column(String, nullable=True)
+    file_size = Column(Integer, nullable=True)
+
+    # Processing info
+    total_chunks = Column(Integer, default=0, nullable=False)
+    processing_status = Column(String(50), default="pending", nullable=False)
+
+    # Metadata
+    file_metadata = Column(JSON, nullable=True)
+
+    # Timestamps
+    uploaded_at = Column(DateTime(timezone=True), server_default=func.now())
+    processed_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    chat = relationship("ChatSession", back_populates="attachments")
+    uploader = relationship("User")
+    chunks = relationship("ChatAttachmentChunk", back_populates="attachment", cascade="all, delete-orphan")
+
+
+class ChatAttachmentChunk(Base):
+    """Text chunks from chat attachments with embeddings"""
+    __tablename__ = "chat_attachment_chunks"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    attachment_id = Column(UUID(as_uuid=True), ForeignKey("chat_attachments.id", ondelete="CASCADE"), nullable=False)
+    chat_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False)
+
+    chunk_index = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False)
+    token_count = Column(Integer, nullable=True)
+    embedding = Column(Vector(1536), nullable=True)
+    chunk_metadata = Column(JSON, nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    attachment = relationship("ChatAttachment", back_populates="chunks")
 
 
 # -------------------------------------------------------------------------
@@ -100,7 +157,8 @@ class KBChunk(Base):
     chunk_index = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
     token_count = Column(Integer, nullable=True)
-    embedding = Column(Vector(384), nullable=True)
+    embedding = Column(Vector(1536), nullable=True)  # Changed: 384 → 1536
+    chunk_metadata = Column(JSON, nullable=True)  # NEW: Added metadata
     indexed = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

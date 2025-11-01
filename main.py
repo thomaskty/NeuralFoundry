@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from sqlalchemy import text
 
-from app.routers import user_router, chat_router, kb_router, chat_kb_router
+from app.routers import user_router, chat_router, kb_router, chat_kb_router,attachment_router
 from app.db.database import engine
 
 
@@ -106,6 +106,7 @@ app.include_router(user_router.router, prefix="/api/v1", tags=["Users"])
 app.include_router(chat_router.router, prefix="/api/v1", tags=["Chats"])
 app.include_router(kb_router.router, prefix="/api/v1", tags=["Knowledge Bases"])
 app.include_router(chat_kb_router.router, prefix="/api/v1", tags=["Chat-KB Links"])
+app.include_router(attachment_router.router, prefix="/api/v1", tags=["Chat Attachments"])
 
 
 @app.get("/")

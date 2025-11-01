@@ -1,24 +1,23 @@
 # app/services/kb_ingestion_service.py
 import os
 import aiofiles
-import shutil
 import hashlib
 import asyncio
 from datetime import datetime, timezone
 from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import AsyncSessionLocal
 from app.db.models import KnowledgeBase, KBDocument, KBChunk
-from app.services.embedding.huggingface_embedding import EmbeddingClient
-from app.services.utils.kb_utils import chunk_text
+from app.services.wrappers.async_embedding import get_batch_embeddings_async
+from app.services.ingestion.document_processor import DocumentProcessor  # NEW
 
-embedding_client = EmbeddingClient()
+# Initialize document processor (singleton)
+_document_processor = DocumentProcessor()
 
 
 async def process_kb_file(kb_id, file_path, original_filename):
     """
-    Process uploaded file: read, chunk, embed, and store in database.
-    This runs asynchronously in the background.
+    Process uploaded file using Docling-based document processor.
+    Supports multiple formats: PDF, Word, images, HTML, etc.
 
     Args:
         kb_id: Knowledge base UUID
@@ -36,65 +35,76 @@ async def process_kb_file(kb_id, file_path, original_filename):
             if not kb:
                 raise ValueError(f"KnowledgeBase {kb_id} not found")
 
-            # 2. Read file asynchronously
-            async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
-                content = await f.read()
+            # 2. Read file metadata
+            file_size = os.path.getsize(file_path)
 
-            # 3. Compute hash for deduplication
-            text_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
-            text_size = len(content.encode("utf-8"))
+            # For text files, compute hash; for others, use filename
+            try:
+                async with aiofiles.open(file_path, "r", encoding="utf-8") as f:
+                    content = await f.read()
+                text_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+            except:
+                # Binary file (PDF, image, etc.)
+                text_hash = hashlib.sha256(original_filename.encode()).hexdigest()
 
-            # 4. Create KBDocument entry
+            # 3. Create KBDocument entry
             document = KBDocument(
                 kb_id=kb_id,
                 uploaded_by=kb.user_id,
-                filename=original_filename,  # Store original filename without ID prefix
-                mime_type="text/plain",
+                filename=original_filename,
+                mime_type=_detect_mime_type(original_filename),
                 text_sha256=text_hash,
-                text_size=text_size,
+                text_size=file_size,
                 doc_metadata={"source": original_filename},
                 created_at=datetime.now(timezone.utc),
             )
             db.add(document)
-            await db.flush()  # Async flush to get document.id
+            await db.flush()
 
-            # CRITICAL: Capture document.id and filename NOW before commit
+            # Capture document ID before commit
             document_id = document.id
             document_filename = document.filename
 
-            # 5. Chunk text
-            chunks = chunk_text(content)
+            # 4. Process file using Docling (intelligent chunking)
+            print(f"Processing {original_filename} with Docling...")
+            chunks = await _document_processor.process_file(file_path)
+            print(f"Extracted {len(chunks)} chunks from {original_filename}")
 
-            # 6. Generate batch embeddings (run in executor if blocking)
-            loop = asyncio.get_event_loop()
-            embeddings = await loop.run_in_executor(
-                None,
-                embedding_client.get_batch_embeddings,
-                chunks
-            )
+            if not chunks:
+                raise ValueError(f"No content could be extracted from {original_filename}")
 
-            # 7. Store each chunk
-            kb_chunk_objects = [
-                KBChunk(
-                    kb_id=kb_id,
-                    document_id=document_id,  # Use captured ID
-                    chunk_index=i,
-                    text=chunk,
-                    token_count=len(chunk.split()),
-                    embedding=emb.tolist(),
-                    created_at=datetime.now(timezone.utc),
+            # 5. Extract text from chunks
+            chunk_texts = [chunk['text'] for chunk in chunks]
+
+            # 6. Generate batch embeddings using OpenAI
+            print(f"Generating embeddings for {len(chunk_texts)} chunks...")
+            embeddings = await get_batch_embeddings_async(chunk_texts)
+
+            # 7. Store each chunk with metadata
+            kb_chunk_objects = []
+            for i, (chunk, emb) in enumerate(zip(chunks, embeddings)):
+                kb_chunk_objects.append(
+                    KBChunk(
+                        kb_id=kb_id,
+                        document_id=document_id,
+                        chunk_index=i,
+                        text=chunk['text'],
+                        token_count=len(chunk['text'].split()),
+                        embedding=emb.tolist(),
+                        chunk_metadata=chunk['metadata'],  # Store Docling metadata
+                        created_at=datetime.now(timezone.utc),
+                    )
                 )
-                for i, (chunk, emb) in enumerate(zip(chunks, embeddings))
-            ]
 
             db.add_all(kb_chunk_objects)
-            await db.commit()  # Async commit
+            await db.commit()
 
-            # Clean up temp file
+            # 8. Clean up temp file
             if os.path.exists(file_path):
                 os.remove(file_path)
 
-            # Return using captured values (not document object)
+            print(f"✅ Successfully processed {document_filename}: {len(kb_chunk_objects)} chunks")
+
             return {
                 "kb_id": kb_id,
                 "document_id": str(document_id),
@@ -104,7 +114,34 @@ async def process_kb_file(kb_id, file_path, original_filename):
 
         except Exception as e:
             await db.rollback()
+
             # Clean up temp file on error
             if os.path.exists(file_path):
                 os.remove(file_path)
+
+            # Log the error
+            print(f"❌ Error processing {original_filename}: {e}")
+            import traceback
+            traceback.print_exc()
+
             raise e
+
+
+def _detect_mime_type(filename: str) -> str:
+    """Detect MIME type from filename extension"""
+    ext = os.path.splitext(filename)[1].lower()
+
+    mime_types = {
+        '.pdf': 'application/pdf',
+        '.txt': 'text/plain',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.doc': 'application/msword',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.html': 'text/html',
+        '.htm': 'text/html',
+        '.md': 'text/markdown',
+    }
+
+    return mime_types.get(ext, 'application/octet-stream')

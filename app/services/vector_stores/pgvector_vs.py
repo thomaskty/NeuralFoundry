@@ -290,3 +290,57 @@ class PgVectorStore:
             result = await conn.exec_driver_sql(sql)
             row = result.fetchone()
             return row[0] if row and row[0] else None
+
+    async def search_chat_attachments(
+            self,
+            vec: np.ndarray,
+            chat_id: str,
+            limit: int = 3,
+            threshold: float | None = None
+    ) -> List[dict]:
+        """
+        Search for similar chunks in chat attachments.
+
+        Args:
+            vec: Query embedding vector
+            chat_id: Chat session ID
+            limit: Maximum number of results
+            threshold: Minimum similarity threshold (0-1)
+
+        Returns:
+            List of dicts with keys: id, attachment_id, chat_id,
+            chunk_index, text, similarity, metadata
+        """
+        vec_literal = _vec_literal(vec)
+
+        where_clause = f"WHERE chat_id = '{chat_id}'"
+
+        if threshold is not None:
+            where_clause += f" AND 1 - (embedding <=> '{vec_literal}'::vector) >= {threshold}"
+
+        sql = f"""
+            SELECT 
+                id,
+                attachment_id,
+                chat_id,
+                chunk_index,
+                text,
+                token_count,
+                metadata,
+                1 - (embedding <=> '{vec_literal}'::vector) AS similarity
+            FROM chat_attachment_chunks
+            {where_clause}
+            ORDER BY similarity DESC
+            LIMIT {limit};
+        """
+
+        async with engine.begin() as conn:
+            result = await conn.exec_driver_sql(sql)
+            rows = result.mappings().all()
+
+            # 🐛 DEBUG: Print attachment search results
+            print(f"🐛 Attachment Search - Found {len(rows)} chunks in chat")
+            if rows:
+                print(f"🐛 Attachment Search - Top similarity: {rows[0]['similarity']:.4f}")
+
+            return [dict(row) for row in rows]
