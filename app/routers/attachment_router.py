@@ -2,13 +2,12 @@
 from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from datetime import datetime, timezone
-import uuid, os, asyncio, tempfile
+import uuid, os, tempfile
 import aiofiles
 
 from app.db.database import get_db
-from app.db.models import ChatSession, ChatAttachment, ChatAttachmentChunk
-from app.services.ingestion.attachment_ingestion_service import process_chat_attachment
+from app.db.models import ChatSession, ChatAttachment
+from app.services.attachment_ingestion_service import process_chat_attachment
 
 router = APIRouter()
 

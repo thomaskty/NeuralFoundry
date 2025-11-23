@@ -62,7 +62,7 @@ async def process_chat_attachment(chat_id: str, file_path: str, original_filenam
                         text=chunk['text'],
                         token_count=len(chunk['text'].split()),
                         embedding=emb.tolist(),
-                        metadata=chunk['metadata'],
+                        chunk_metadata=chunk['metadata'],  # ← CHANGED
                         created_at=datetime.now(timezone.utc),
                     )
                 )

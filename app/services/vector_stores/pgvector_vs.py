@@ -298,37 +298,27 @@ class PgVectorStore:
             limit: int = 3,
             threshold: float | None = None
     ) -> List[dict]:
-        """
-        Search for similar chunks in chat attachments.
-
-        Args:
-            vec: Query embedding vector
-            chat_id: Chat session ID
-            limit: Maximum number of results
-            threshold: Minimum similarity threshold (0-1)
-
-        Returns:
-            List of dicts with keys: id, attachment_id, chat_id,
-            chunk_index, text, similarity, metadata
-        """
+        """Search for similar chunks in chat attachments."""
         vec_literal = _vec_literal(vec)
 
-        where_clause = f"WHERE chat_id = '{chat_id}'"
+        where_clause = f"WHERE c.chat_id = '{chat_id}'"
 
         if threshold is not None:
             where_clause += f" AND 1 - (embedding <=> '{vec_literal}'::vector) >= {threshold}"
 
         sql = f"""
             SELECT 
-                id,
-                attachment_id,
-                chat_id,
-                chunk_index,
-                text,
-                token_count,
-                metadata,
-                1 - (embedding <=> '{vec_literal}'::vector) AS similarity
-            FROM chat_attachment_chunks
+                c.id,
+                c.attachment_id,
+                c.chat_id,
+                c.chunk_index,
+                c.text,
+                c.token_count,
+                c.chunk_metadata,
+                a.filename,
+                1 - (c.embedding <=> '{vec_literal}'::vector) AS similarity
+            FROM chat_attachment_chunks c
+            JOIN chat_attachments a ON c.attachment_id = a.id
             {where_clause}
             ORDER BY similarity DESC
             LIMIT {limit};
@@ -338,9 +328,19 @@ class PgVectorStore:
             result = await conn.exec_driver_sql(sql)
             rows = result.mappings().all()
 
-            # 🐛 DEBUG: Print attachment search results
-            print(f"🐛 Attachment Search - Found {len(rows)} chunks in chat")
+            print(f"🐛 Attachment Search - Found {len(rows)} chunks")
             if rows:
                 print(f"🐛 Attachment Search - Top similarity: {rows[0]['similarity']:.4f}")
 
-            return [dict(row) for row in rows]
+            # Build metadata dict for compatibility with chat_pipelines
+            results = []
+            for row in rows:
+                row_dict = dict(row)
+                # Rename chunk_metadata to metadata for compatibility
+                row_dict['metadata'] = row_dict.pop('chunk_metadata', {})
+                # Add filename to metadata if not present
+                if 'filename' not in row_dict['metadata']:
+                    row_dict['metadata']['filename'] = row_dict.get('filename', 'Unknown')
+                results.append(row_dict)
+
+            return results

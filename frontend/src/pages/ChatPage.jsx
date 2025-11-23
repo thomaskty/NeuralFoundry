@@ -3,9 +3,9 @@ import Header from '../components/layout/Header'
 import Sidebar from '../components/layout/Sidebar'
 import MainChatArea from '../components/layout/MainChatArea'
 import RightPanel from '../components/layout/RightPanel'
-import { chatAPI, kbAPI } from '../services/api'
 import { ToastContainer } from '../components/Toast'
 import FileExplorerModal from '../components/kb/FileExplorerModal'
+import { chatAPI, kbAPI, attachmentAPI } from '../services/api'
 
 export default function ChatPage({ user, onLogout }) {
   const [chats, setChats] = useState([])
@@ -15,6 +15,8 @@ export default function ChatPage({ user, onLogout }) {
   const [attachedKBs, setAttachedKBs] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedModel, setSelectedModel] = useState('mistral-small-latest')
+  const [attachments, setAttachments] = useState([])
+  const [isUploading, setIsUploading] = useState(false)
 
   // Toast states
   const [toasts, setToasts] = useState([])
@@ -71,8 +73,12 @@ export default function ChatPage({ user, onLogout }) {
 
   const loadChatMessages = async (chatId) => {
     try {
-      const chatData = await chatAPI.getChat(chatId)
+      const [chatData, attachmentsData] = await Promise.all([
+        chatAPI.getChat(chatId),
+        attachmentAPI.listAttachments(chatId)
+      ])
       setMessages(chatData.messages || [])
+      setAttachments(attachmentsData.attachments || [])
     } catch (error) {
       console.error('Failed to load messages:', error)
     }
@@ -102,6 +108,7 @@ export default function ChatPage({ user, onLogout }) {
 
   const handleSelectChat = (chat) => {
     setCurrentChat(chat)
+    setAttachments([]) // ADD THIS LINE
   }
 
   const handleDeleteChat = async (chatId) => {
@@ -184,6 +191,46 @@ export default function ChatPage({ user, onLogout }) {
     )
   }
 
+  const handleAttachFile = async (file) => {
+    if (!currentChat) return
+
+    setIsUploading(true)
+    try {
+      await attachmentAPI.uploadAttachment(currentChat.chat_id, file)
+      showToast(`File "${file.name}" uploaded successfully`, 'success')
+
+      // Reload attachments
+      const attachmentsData = await attachmentAPI.listAttachments(currentChat.chat_id)
+      setAttachments(attachmentsData.attachments || [])
+
+      // Poll for processing completion
+      setTimeout(async () => {
+        const updated = await attachmentAPI.listAttachments(currentChat.chat_id)
+        setAttachments(updated.attachments || [])
+      }, 3000)
+    } catch (error) {
+      console.error('Failed to upload attachment:', error)
+      showToast('Failed to upload file', 'error')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const handleRemoveAttachment = async (attachmentId) => {
+    if (!currentChat) return
+
+    if (!confirm('Remove this attachment?')) return
+
+    try {
+      await attachmentAPI.deleteAttachment(currentChat.chat_id, attachmentId)
+      setAttachments(attachments.filter(a => a.id !== attachmentId))
+      showToast('Attachment removed', 'success')
+    } catch (error) {
+      console.error('Failed to remove attachment:', error)
+      showToast('Failed to remove attachment', 'error')
+    }
+  }
+
   return (
     <div className="h-screen flex flex-col">
       <Header user={user} onLogout={onLogout} />
@@ -208,6 +255,10 @@ export default function ChatPage({ user, onLogout }) {
           messages={messages}
           onSendMessage={handleSendMessage}
           attachedKBs={attachedKBs}
+          attachments={attachments}
+          onAttachFile={handleAttachFile}
+          onRemoveAttachment={handleRemoveAttachment}
+          isUploading={isUploading}
         />
 
         <RightPanel

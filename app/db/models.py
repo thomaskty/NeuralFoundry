@@ -1,8 +1,10 @@
+import uuid
+
 from sqlalchemy import (
     Column, Integer, String, Text, DateTime, ForeignKey,
     Boolean, JSON
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID,JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base, relationship
 from pgvector.sqlalchemy import Vector
@@ -94,21 +96,19 @@ class ChatAttachment(Base):
 
 
 class ChatAttachmentChunk(Base):
-    """Text chunks from chat attachments with embeddings"""
     __tablename__ = "chat_attachment_chunks"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     attachment_id = Column(UUID(as_uuid=True), ForeignKey("chat_attachments.id", ondelete="CASCADE"), nullable=False)
-    chat_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False)
-
+    chat_id = Column(UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="CASCADE"), nullable=False, index=True)
     chunk_index = Column(Integer, nullable=False)
     text = Column(Text, nullable=False)
-    token_count = Column(Integer, nullable=True)
-    embedding = Column(Vector(1536), nullable=True)
-    chunk_metadata = Column(JSON, nullable=True)
+    token_count = Column(Integer, nullable=False)
+    embedding = Column(Vector(1536), nullable=False)
+    chunk_metadata = Column(JSONB, default={})  # ← CHANGED from 'metadata'
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
+    # Relationships
     attachment = relationship("ChatAttachment", back_populates="chunks")
 
 

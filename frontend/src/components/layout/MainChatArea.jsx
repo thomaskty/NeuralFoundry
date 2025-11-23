@@ -1,13 +1,23 @@
-import { useEffect, useRef } from 'react'
-import MessageList from '../chat/MessageList'
-import ChatInput from '../chat/ChatInput'
+import { useEffect, useRef } from 'react';
+import MessageList from '../chat/MessageList';
+import ChatInput from '../chat/ChatInput';
+import AttachmentPreview from '../chat/AttachmentPreview';
 
-export default function MainChatArea({ currentChat, messages, onSendMessage, attachedKBs }) {
-  const messagesEndRef = useRef(null)
+export default function MainChatArea({
+  currentChat,
+  messages,
+  onSendMessage,
+  attachedKBs,
+  attachments,
+  onAttachFile,
+  onRemoveAttachment,
+  isUploading
+}) {
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   if (!currentChat) {
     return (
@@ -22,7 +32,7 @@ export default function MainChatArea({ currentChat, messages, onSendMessage, att
           <p className="text-gray-600">Create a new chat to get started</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -33,10 +43,24 @@ export default function MainChatArea({ currentChat, messages, onSendMessage, att
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Attachments Preview */}
+      {attachments && attachments.length > 0 && (
+        <AttachmentPreview
+          attachments={attachments}
+          onRemove={onRemoveAttachment}
+          isUploading={isUploading}
+        />
+      )}
+
       {/* Chat Input */}
       <div className="border-t border-gray-200 p-4">
-        <ChatInput onSendMessage={onSendMessage} attachedKBs={attachedKBs} />
+        <ChatInput
+          onSendMessage={onSendMessage}
+          attachedKBs={attachedKBs}
+          onAttachFile={onAttachFile}
+          isUploading={isUploading}
+        />
       </div>
     </div>
-  )
+  );
 }

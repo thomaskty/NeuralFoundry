@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 const API_BASE = '/api/v1'
+const API_BASE_URL = 'http://localhost:8000/api/v1'
 
 // Create axios instance
 const api = axios.create({
@@ -128,4 +129,50 @@ export const kbAPI = {
   }
 }
 
+// ============================================================================
+// Chat Attachments API
+// ============================================================================
+export const attachmentAPI = {
+  uploadAttachment: async (chatId, file) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch(`${API_BASE_URL}/chats/${chatId}/attachments/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.detail || 'Failed to upload attachment')
+    }
+
+    return response.json()
+  },
+
+  listAttachments: async (chatId) => {
+    const response = await fetch(`${API_BASE_URL}/chats/${chatId}/attachments`)
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch attachments')
+    }
+
+    return response.json()
+  },
+
+  deleteAttachment: async (chatId, attachmentId) => {
+    const response = await fetch(
+      `${API_BASE_URL}/chats/${chatId}/attachments/${attachmentId}`,
+      { method: 'DELETE' }
+    )
+
+    if (!response.ok) {
+      throw new Error('Failed to delete attachment')
+    }
+
+    return response.json()
+  }
+}
+
+// Export default at the end
 export default api
