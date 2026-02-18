@@ -81,27 +81,27 @@ export default function FileExplorerModal({ kb, onClose, onShowToast }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur flex items-center justify-center z-50 p-4">
+      <div className="bg-white/90 backdrop-blur rounded-2xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col border border-slate-200">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div className="flex items-center gap-3">
-            <Database className="text-blue-600" size={24} />
+            <Database className="text-indigo-600" size={24} />
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">{kb.title}</h2>
-              <p className="text-sm text-gray-500">
+              <h2 className="text-2xl font-bold text-slate-900">{kb.title}</h2>
+              <p className="text-sm text-slate-500">
                 {documents.length} {documents.length === 1 ? 'document' : 'documents'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition"
+            className="p-2 hover:bg-slate-100 rounded-lg transition"
           >
             <X size={24} />
           </button>
         </div>
 
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
+        <div className="p-6 border-b border-slate-200 bg-slate-50/70">
           <div className="flex gap-3">
             <div className="flex-1">
               <input
@@ -109,13 +109,13 @@ export default function FileExplorerModal({ kb, onClose, onShowToast }) {
                 accept=".txt,.md,.pdf"
                 onChange={(e) => setSelectedFile(e.target.files[0])}
                 disabled={uploading}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+                className="w-full px-4 py-2.5 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-slate-100 shadow-sm"
               />
             </div>
             <button
               onClick={handleUpload}
               disabled={!selectedFile || uploading}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-medium rounded-lg flex items-center gap-2 transition"
+              className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white font-semibold rounded-xl flex items-center gap-2 transition shadow-sm"
             >
               {uploading ? (
                 <>
@@ -130,7 +130,7 @@ export default function FileExplorerModal({ kb, onClose, onShowToast }) {
               )}
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-slate-500 mt-2">
             Supported formats: .txt, .md, .pdf • Max size: 10MB
           </p>
         </div>
@@ -138,10 +138,10 @@ export default function FileExplorerModal({ kb, onClose, onShowToast }) {
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 size={32} className="animate-spin text-blue-600" />
+              <Loader2 size={32} className="animate-spin text-indigo-600" />
             </div>
           ) : documents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+            <div className="flex flex-col items-center justify-center py-12 text-slate-500">
               <FileText size={48} className="mb-3 opacity-50" />
               <p className="text-lg font-medium">No documents yet</p>
               <p className="text-sm">Upload a document to get started</p>
@@ -151,18 +151,18 @@ export default function FileExplorerModal({ kb, onClose, onShowToast }) {
               {documents.map(doc => (
                 <div
                   key={doc.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-sm transition"
+                  className="border border-slate-200 rounded-xl p-4 hover:border-slate-300 hover:shadow-sm transition"
                 >
                   <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 w-10 h-10 bg-blue-50 rounded-lg flex items-center justify-center">
-                      <File className="text-blue-600" size={20} />
+                    <div className="flex-shrink-0 w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center">
+                      <File className="text-indigo-600" size={20} />
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-800 truncate">
+                      <h4 className="font-semibold text-slate-800 truncate">
                         {doc.filename}
                       </h4>
-                      <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
                         <span>{formatFileSize(doc.text_size)}</span>
                         <span>•</span>
                         <span>{doc.chunk_count} chunks</span>
@@ -170,7 +170,7 @@ export default function FileExplorerModal({ kb, onClose, onShowToast }) {
                         <span>{formatDate(doc.created_at)}</span>
                       </div>
                       {doc.mime_type && (
-                        <span className="inline-block mt-2 px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                        <span className="inline-block mt-2 px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded">
                           {doc.mime_type}
                         </span>
                       )}
@@ -179,13 +179,13 @@ export default function FileExplorerModal({ kb, onClose, onShowToast }) {
                     <button
                       onClick={() => handleDelete(doc.id, doc.filename)}
                       disabled={deleting === doc.id}
-                      className="flex-shrink-0 p-2 hover:bg-red-50 rounded-lg transition disabled:opacity-50"
+                      className="flex-shrink-0 p-2 hover:bg-rose-50 rounded-lg transition disabled:opacity-50"
                       title="Delete document"
                     >
                       {deleting === doc.id ? (
-                        <Loader2 size={18} className="text-red-600 animate-spin" />
+                        <Loader2 size={18} className="text-rose-600 animate-spin" />
                       ) : (
-                        <Trash2 size={18} className="text-red-600" />
+                        <Trash2 size={18} className="text-rose-600" />
                       )}
                     </button>
                   </div>
@@ -196,8 +196,8 @@ export default function FileExplorerModal({ kb, onClose, onShowToast }) {
         </div>
 
         {documents.length > 0 && (
-          <div className="p-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+          <div className="p-4 border-t border-slate-200 bg-slate-50/70">
+            <div className="flex items-center gap-2 text-sm text-slate-600">
               <AlertCircle size={16} />
               <span>
                 Total chunks: {documents.reduce((sum, doc) => sum + doc.chunk_count, 0)}

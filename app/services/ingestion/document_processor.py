@@ -33,6 +33,10 @@ class DocumentProcessor:
         """
         import asyncio
 
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in {".txt", ".md"}:
+            return await self._process_plain_text(file_path)
+
         # Convert document using Docling (runs in thread to avoid blocking)
         result = await asyncio.to_thread(
             self.converter.convert,
@@ -182,5 +186,46 @@ class DocumentProcessor:
                     })
             except Exception as e2:
                 print(f"Final fallback failed: {e2}")
+
+        return chunks
+
+    async def _process_plain_text(self, file_path: str) -> List[Dict[str, Any]]:
+        """
+        Process plain text/markdown files without Docling.
+        Splits into overlapping chunks.
+        """
+        import aiofiles
+
+        async with aiofiles.open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            text = await f.read()
+
+        if not text or len(text.strip()) < 50:
+            return []
+
+        return self._split_text_to_chunks(text, file_path)
+
+    def _split_text_to_chunks(self, text: str, file_path: str) -> List[Dict[str, Any]]:
+        chunks = []
+        cleaned = " ".join(text.split())
+        step = max(self.chunk_size - self.chunk_overlap, 1)
+        index = 0
+        page_number = 1
+
+        for start in range(0, len(cleaned), step):
+            chunk_text = cleaned[start:start + self.chunk_size]
+            if len(chunk_text.strip()) < 50:
+                continue
+            chunks.append({
+                "text": chunk_text.strip(),
+                "metadata": {
+                    "filename": os.path.basename(file_path),
+                    "section": "PLAIN_TEXT",
+                    "page": page_number,
+                    "type": "plain_text"
+                }
+            })
+            index += 1
+            if index % 3 == 0:
+                page_number += 1
 
         return chunks

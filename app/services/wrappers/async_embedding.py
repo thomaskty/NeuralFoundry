@@ -2,7 +2,7 @@
 import numpy as np
 from app.services.embedding.openai_embedding import get_embedding_client
 
-# Use OpenAI instead of HuggingFace
+# Use OpenAI for embeddings
 _embedding_client = get_embedding_client()
 
 

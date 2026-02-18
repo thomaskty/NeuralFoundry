@@ -12,7 +12,7 @@ DATABASE_URL = (
     f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 )
 
-engine = create_async_engine(DATABASE_URL, echo=True, future=True)
+engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 
 AsyncSessionLocal = sessionmaker(
     autocommit=False,
@@ -24,4 +24,3 @@ AsyncSessionLocal = sessionmaker(
 async def get_db():
     async with AsyncSessionLocal() as session:
         yield session
-

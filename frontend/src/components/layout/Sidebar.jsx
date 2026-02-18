@@ -25,12 +25,12 @@ export default function Sidebar({
 
   return (
     <>
-      <div className="w-64 bg-gray-50 border-r border-gray-200 flex flex-col">
+      <div className="w-72 bg-white/70 backdrop-blur border-r border-slate-200 flex flex-col shadow-sm">
         {/* New Chat Button */}
         <div className="p-4">
           <button
             onClick={() => setShowNewChatModal(true)}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg flex items-center justify-center gap-2 transition"
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition shadow-sm"
           >
             <Plus size={20} />
             New Chat
@@ -39,28 +39,28 @@ export default function Sidebar({
 
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto px-4 space-y-2">
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Your Chats</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase mb-2 tracking-wider">Your Chats</p>
 
           {chats.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">No chats yet</p>
+            <p className="text-sm text-slate-500 text-center py-4">No chats yet</p>
           ) : (
             chats.map((chat) => (
               <div
                 key={chat.chat_id}
-                className={`group relative p-3 rounded-lg cursor-pointer transition ${
+                className={`group relative p-3 rounded-xl cursor-pointer transition border ${
                   currentChat?.chat_id === chat.chat_id
-                    ? 'bg-blue-100 border border-blue-300'
-                    : 'hover:bg-gray-100 border border-transparent'
+                    ? 'bg-indigo-50 border-indigo-200 shadow-sm'
+                    : 'hover:bg-slate-50 border-transparent'
                 }`}
                 onClick={() => onSelectChat(chat)}
               >
                 <div className="flex items-start gap-2">
-                  <MessageSquare size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
+                  <MessageSquare size={16} className="text-slate-500 mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">
+                    <p className="text-sm font-semibold text-slate-800 truncate">
                       {chat.title || 'New Chat'}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-slate-500">
                       {new Date(chat.created_at).toLocaleDateString()}
                     </p>
                   </div>
@@ -72,9 +72,9 @@ export default function Sidebar({
                         onDeleteChat(chat.chat_id)
                       }
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 rounded transition flex-shrink-0"
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-rose-100 rounded transition flex-shrink-0"
                   >
-                    <Trash2 size={14} className="text-red-600" />
+                    <Trash2 size={14} className="text-rose-600" />
                   </button>
                 </div>
               </div>
@@ -83,10 +83,10 @@ export default function Sidebar({
         </div>
 
         {/* KB Management Button */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-slate-200">
           <button
             onClick={() => setShowKBModal(true)}
-            className="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition text-sm"
+            className="w-full bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-semibold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition text-sm shadow-sm"
           >
             <Database size={18} />
             Manage Knowledge Bases

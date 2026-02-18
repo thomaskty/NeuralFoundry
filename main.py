@@ -1,3 +1,4 @@
+import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -7,14 +8,22 @@ from app.routers import user_router, chat_router, kb_router, chat_kb_router,atta
 from app.db.database import engine
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s"
+)
+logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Startup and shutdown events.
     Runs once when the app starts and when it shuts down.
     """
-    # Startup: Create tables and ensure indexes exist
+    # Startup: Ensure extensions, create tables, ensure indexes exist
     print("🚀 Initializing database...")
+    await ensure_extensions()
     await create_tables()
     await ensure_indexes()
     print("✅ Database ready")
@@ -36,13 +45,21 @@ async def create_tables():
     print("✅ Tables created/verified")
 
 
+async def ensure_extensions():
+    """Create required extensions if they don't exist"""
+    async with engine.begin() as conn:
+        try:
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
+        except Exception as e:
+            print(f"⚠️  Extension creation warning: {e}")
+
+
 async def ensure_indexes():
     """
     Create indexes if they don't exist.
     Uses IF NOT EXISTS so it's safe to run multiple times.
     """
     indexes = [
-        "CREATE EXTENSION IF NOT EXISTS vector;",
         "CREATE INDEX IF NOT EXISTS idx_chat_messages_session_id ON chat_messages (session_id);",
         "CREATE INDEX IF NOT EXISTS idx_kb_chunks_kb_id ON kb_chunks (kb_id);",
         "CREATE INDEX IF NOT EXISTS idx_kb_chunks_document_id ON kb_chunks (document_id);",

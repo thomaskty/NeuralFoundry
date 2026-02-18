@@ -1,5 +1,5 @@
 fastapi[all]==0.119.0
-mistralai[all]==1.9.11
+openai>=1.0.0
 uvicorn==0.37.0
 sqlalchemy==2.0.44
 asyncpg==0.30.0
@@ -7,11 +7,7 @@ pytest==8.4.2
 pytest-asyncio==1.2.0
 faiss-cpu==1.12.0
 requests==2.32.5
-sentence_transformers==5.1.1
 pgvector==0.4.1
 psycopg==3.2.10
-langchain_core==0.3.79
-langgraph==0.6.10
-langchain_mistralai==0.2.12
 aiofiles==25.1.0
-langchain_ollama==1.0.0
+docling>=2.70.0

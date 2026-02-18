@@ -4,9 +4,7 @@ from pydantic import ConfigDict
 
 class Settings(BaseSettings):
     # API Keys
-    OPENAI_API_KEY: str  # NEW: Added OpenAI
-    MISTRAL_API_KEY: str
-    OLLAMA_BASE_URL: str
+    OPENAI_API_KEY: str  # Read from system env or .env
 
     # Database
     POSTGRES_USER: str

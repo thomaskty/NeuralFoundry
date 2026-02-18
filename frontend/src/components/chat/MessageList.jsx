@@ -4,7 +4,7 @@ export default function MessageList({ messages }) {
   if (messages.length === 0) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-gray-500">Start a conversation...</p>
+        <p className="text-slate-500">Start a conversation...</p>
       </div>
     )
   }

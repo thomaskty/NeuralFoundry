@@ -39,7 +39,7 @@ export default function ChatInput({ onSendMessage, attachedKBs, onAttachFile, is
     <form onSubmit={handleSubmit} className="flex flex-col gap-2">
       {/* KB Info */}
       {attachedKBs.length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-gray-600 px-2">
+        <div className="flex items-center gap-2 text-xs text-slate-600 px-2">
           <Paperclip size={14} />
           <span>Using {attachedKBs.length} knowledge base{attachedKBs.length > 1 ? 's' : ''}</span>
         </div>
@@ -52,7 +52,7 @@ export default function ChatInput({ onSendMessage, attachedKBs, onAttachFile, is
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={sending || isUploading}
-          className="px-3 py-3 bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 disabled:cursor-not-allowed text-gray-700 rounded-xl transition flex items-center gap-2"
+          className="px-3 py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 disabled:cursor-not-allowed text-slate-700 rounded-xl transition flex items-center gap-2 shadow-sm"
           title="Attach file"
         >
           {isUploading ? (
@@ -79,7 +79,7 @@ export default function ChatInput({ onSendMessage, attachedKBs, onAttachFile, is
             placeholder="Type your message... (Shift+Enter for new line)"
             rows={1}
             disabled={sending}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:bg-gray-100"
+            className="w-full px-4 py-3 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-slate-100 shadow-sm"
             style={{ minHeight: '48px', maxHeight: '200px' }}
           />
         </div>
@@ -88,7 +88,7 @@ export default function ChatInput({ onSendMessage, attachedKBs, onAttachFile, is
         <button
           type="submit"
           disabled={!message.trim() || sending}
-          className="px-6 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded-xl transition flex items-center gap-2 font-medium"
+          className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl transition flex items-center gap-2 font-semibold shadow-sm"
         >
           {sending ? (
             <>

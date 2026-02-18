@@ -14,7 +14,7 @@ export default function ChatPage({ user, onLogout }) {
   const [knowledgeBases, setKnowledgeBases] = useState([])
   const [attachedKBs, setAttachedKBs] = useState([])
   const [loading, setLoading] = useState(true)
-  const [selectedModel, setSelectedModel] = useState('mistral-small-latest')
+  const [selectedModel, setSelectedModel] = useState('gpt-4o-mini')
   const [attachments, setAttachments] = useState([])
   const [isUploading, setIsUploading] = useState(false)
 
@@ -232,7 +232,7 @@ export default function ChatPage({ user, onLogout }) {
   }
 
   return (
-    <div className="h-screen flex flex-col">
+    <div className="h-screen flex flex-col bg-slate-50/60">
       <Header user={user} onLogout={onLogout} />
 
       <div className="flex-1 flex overflow-hidden">
