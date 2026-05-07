@@ -1,67 +1,62 @@
-import { useState, useRef } from 'react';
-import { Send, Paperclip, Loader2 } from 'lucide-react';
+import { useRef, useState } from 'react'
+import {
+  Box,
+  Button,
+  Textarea,
+} from '@cloudscape-design/components'
 
 export default function ChatInput({ onSendMessage, attachedKBs, onAttachFile, isUploading }) {
-  const [message, setMessage] = useState('');
-  const [sending, setSending] = useState(false);
-  const fileInputRef = useRef(null);
+  const [message, setMessage] = useState('')
+  const [sending, setSending] = useState(false)
+  const fileInputRef = useRef(null)
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!message.trim() || sending) return;
+    e.preventDefault()
+    if (!message.trim() || sending) return
 
-    setSending(true);
-    setMessage('');
+    const current = message.trim()
+    setSending(true)
+    setMessage('')
 
     try {
-      await onSendMessage(message.trim());
+      await onSendMessage(current)
     } finally {
-      setSending(false);
+      setSending(false)
     }
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  };
+  }
 
   const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.[0]
     if (file && onAttachFile) {
-      onAttachFile(file);
-      e.target.value = ''; // Reset input
+      onAttachFile(file)
+      e.target.value = ''
     }
-  };
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-      {/* KB Info */}
-      {attachedKBs.length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-slate-600 px-2">
-          <Paperclip size={14} />
-          <span>Using {attachedKBs.length} knowledge base{attachedKBs.length > 1 ? 's' : ''}</span>
-        </div>
-      )}
+    <form onSubmit={handleSubmit} className="nf-chat-input-form">
+      <div className="nf-chat-input-top">
+        {attachedKBs.length > 0 && (
+          <Box color="text-body-secondary" fontSize="body-s" className="nf-chat-context">
+            Using {attachedKBs.length} knowledge base{attachedKBs.length === 1 ? '' : 's'}
+          </Box>
+        )}
+        <Box color="text-body-secondary" fontSize="body-s">
+          Shift+Enter for a new line
+        </Box>
+      </div>
 
-      {/* Input Area */}
-      <div className="flex items-end gap-2">
-        {/* Attach Button */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={sending || isUploading}
-          className="px-3 py-3 bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 disabled:cursor-not-allowed text-slate-700 rounded-xl transition flex items-center gap-2 shadow-sm"
-          title="Attach file"
-        >
-          {isUploading ? (
-            <Loader2 size={20} className="animate-spin" />
-          ) : (
-            <Paperclip size={20} />
-          )}
-        </button>
+      <div className="nf-chat-textarea-wrap">
+        <Textarea
+          value={message}
+          onChange={({ detail }) => setMessage(detail.value)}
+          placeholder="Type your message"
+          rows={4}
+          disabled={sending}
+        />
+      </div>
 
+      <div className="nf-chat-input-actions">
         <input
           ref={fileInputRef}
           type="file"
@@ -69,40 +64,23 @@ export default function ChatInput({ onSendMessage, attachedKBs, onAttachFile, is
           accept=".pdf,.txt,.docx,.doc,.png,.jpg,.jpeg,.html,.md"
           style={{ display: 'none' }}
         />
-
-        {/* Text Input */}
-        <div className="flex-1 relative">
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message... (Shift+Enter for new line)"
-            rows={1}
-            disabled={sending}
-            className="w-full px-4 py-3 border border-slate-200 rounded-xl resize-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none disabled:bg-slate-100 shadow-sm"
-            style={{ minHeight: '48px', maxHeight: '200px' }}
-          />
+        <div className="nf-chat-input-left">
+          <Button
+            type="button"
+            iconName="upload"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending || isUploading}
+            loading={isUploading}
+          >
+            Attach file
+          </Button>
         </div>
-
-        {/* Send Button */}
-        <button
-          type="submit"
-          disabled={!message.trim() || sending}
-          className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white rounded-xl transition flex items-center gap-2 font-semibold shadow-sm"
-        >
-          {sending ? (
-            <>
-              <Loader2 size={20} className="animate-spin" />
-              Sending...
-            </>
-          ) : (
-            <>
-              <Send size={20} />
-              Send
-            </>
-          )}
-        </button>
+        <div className="nf-chat-input-right">
+          <Button variant="primary" formAction="submit" loading={sending} disabled={!message.trim()}>
+            Send
+          </Button>
+        </div>
       </div>
     </form>
-  );
+  )
 }

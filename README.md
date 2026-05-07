@@ -107,14 +107,14 @@ export OPENAI_API_KEY="your_key_here"
 
 ### 2. Run everything
 ```bash
-docker compose up --build
+docker compose -p neuralfoundry-ui -f /Users/thomaskuttyreji/Documents/GitHub/NeuralFoundry/docker-compose.yml up --build
 ```
 
 ### 2.1. Fresh start (wipe all data)
 This removes all Postgres data and starts clean.
 ```bash
-docker compose down -v
-docker compose up --build
+docker compose -p neuralfoundry-ui -f /Users/thomaskuttyreji/Documents/GitHub/NeuralFoundry/docker-compose.yml down -v
+docker compose -p neuralfoundry-ui -f /Users/thomaskuttyreji/Documents/GitHub/NeuralFoundry/docker-compose.yml up --build
 ```
 
 ---
@@ -154,7 +154,17 @@ KnowledgeBase
 ### 3. Open services
 - Backend: http://localhost:8000
 - Frontend: http://localhost:5173
-- pgAdmin: http://localhost:8080
+- pgAdmin: http://localhost:8081
+
+### 3.1 Docker separation from YAML implementation
+To avoid collisions with `NeuralFoundry-yaml`, this UI stack uses separate defaults:
+- Postgres host port: `5433`
+- pgAdmin host port: `8081`
+
+You can override these if needed:
+```bash
+NF_UI_DB_PORT=5433 NF_UI_PGADMIN_PORT=8081 docker compose -p neuralfoundry-ui -f /Users/thomaskuttyreji/Documents/GitHub/NeuralFoundry/docker-compose.yml up --build
+```
 
 ### 4. pgAdmin connection (Compose)
 pgAdmin will auto-register a server named `neuralfoundry`.
@@ -209,5 +219,4 @@ cd /Users/thomaskuttyreji/Documents/GitHub/NeuralFoundry/frontend
 npm install
 npm run dev
 ```
-
 

@@ -1,0 +1,70 @@
+@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Public Sans', system-ui, -apple-system, sans-serif;
+  background: linear-gradient(180deg, #f5f7fa 0%, #edf2f7 100%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.nf-login-root {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.nf-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 1001;
+  background: #ffffff;
+  border-bottom: 1px solid #d5dbdb;
+  padding: 8px 20px;
+}
+
+.nf-message-row-user,
+.nf-message-row-assistant {
+  width: 100%;
+}
+
+.nf-message-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nf-chat-input-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.nf-attachment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #d5dbdb;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.nf-attachment-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+pre {
+  max-width: 100%;
+  overflow: auto;
+  border-radius: 8px;
+}

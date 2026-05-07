@@ -1,67 +1,46 @@
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { User, Bot, Copy, Check } from 'lucide-react'
-import { useState } from 'react'
+import {
+  Badge,
+  Box,
+  Button,
+  Container,
+  SpaceBetween,
+} from '@cloudscape-design/components'
 
 export default function MessageBubble({ message }) {
   const [copied, setCopied] = useState(false)
   const isUser = message.role === 'user'
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(message.content)
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(message.content)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   return (
-    <div className={`flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-      {/* Avatar */}
-      <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center shadow-sm ${
-        isUser ? 'bg-slate-900' : 'bg-gradient-to-br from-indigo-600 to-sky-500'
-      }`}>
-        {isUser ? (
-          <User size={18} className="text-white" />
-        ) : (
-          <Bot size={18} className="text-white" />
-        )}
-      </div>
+    <div className={`nf-message-row ${isUser ? 'is-user' : 'is-assistant'}`}>
+      <Container>
+        <SpaceBetween size="s">
+          <div className="nf-message-meta">
+            <Badge color={isUser ? 'blue' : 'green'}>{isUser ? 'User' : 'Assistant'}</Badge>
+            <Box color="text-body-secondary" fontSize="body-s">
+              {new Date(message.created_at).toLocaleTimeString()}
+            </Box>
+            {!isUser && (
+              <Button iconName={copied ? 'status-positive' : 'copy'} variant="icon" onClick={handleCopy} />
+            )}
+          </div>
 
-      {/* Message Content */}
-      <div className={`flex-1 max-w-3xl ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
-        <div className={`group relative rounded-2xl px-4 py-3 shadow-sm ${
-          isUser 
-            ? 'bg-slate-900 text-white' 
-            : 'bg-white text-slate-800 border border-slate-200'
-        }`}>
-          {/* Copy Button */}
-          {!isUser && (
-            <button
-              onClick={handleCopy}
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1.5 bg-slate-50 rounded-lg shadow-sm hover:bg-slate-100 transition"
-              title="Copy message"
-            >
-              {copied ? (
-                <Check size={14} className="text-emerald-600" />
-              ) : (
-                <Copy size={14} className="text-slate-600" />
-              )}
-            </button>
-          )}
-
-          {/* Message Text */}
-          <div className={`prose prose-sm max-w-none ${isUser ? 'prose-invert' : ''}`}>
+          <Box>
             <ReactMarkdown
               components={{
-                code({node, inline, className, children, ...props}) {
+                code({ inline, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || '')
                   return !inline && match ? (
-                    <SyntaxHighlighter
-                      style={vscDarkPlus}
-                      language={match[1]}
-                      PreTag="div"
-                      {...props}
-                    >
+                    <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" {...props}>
                       {String(children).replace(/\n$/, '')}
                     </SyntaxHighlighter>
                   ) : (
@@ -69,19 +48,14 @@ export default function MessageBubble({ message }) {
                       {children}
                     </code>
                   )
-                }
+                },
               }}
             >
               {message.content}
             </ReactMarkdown>
-          </div>
-        </div>
-
-        {/* Timestamp */}
-        <span className="text-xs text-slate-500 mt-1 px-2">
-          {new Date(message.created_at).toLocaleTimeString()}
-        </span>
-      </div>
+          </Box>
+        </SpaceBetween>
+      </Container>
     </div>
   )
 }

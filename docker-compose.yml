@@ -1,7 +1,8 @@
+name: neuralfoundry-ui
+
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: nf-postgres
     restart: unless-stopped
     env_file:
       - .env
@@ -10,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "${NF_UI_DB_PORT:-5433}:5432"
     volumes:
       - nf_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -23,7 +24,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: nf-backend
     restart: unless-stopped
     env_file:
       - .env
@@ -43,7 +43,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: nf-frontend
     restart: unless-stopped
     environment:
       VITE_API_BASE_URL: http://localhost:8000/api/v1
@@ -57,7 +56,6 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4
-    container_name: nf-pgadmin
     restart: unless-stopped
     logging:
       driver: "none"
@@ -68,7 +66,7 @@ services:
     depends_on:
       - db
     ports:
-      - "8080:80"
+      - "${NF_UI_PGADMIN_PORT:-8081}:80"
     volumes:
       - ./pgadmin/servers.json:/pgadmin4/servers.json
 
