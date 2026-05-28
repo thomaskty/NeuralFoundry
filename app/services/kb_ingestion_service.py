@@ -1,8 +1,7 @@
 # app/services/kb_ingestion_service.py
 import os
-import aiofiles
 import hashlib
-import asyncio
+import aiofiles
 from datetime import datetime, timezone
 from sqlalchemy.future import select
 from app.db.database import AsyncSessionLocal
@@ -24,6 +23,7 @@ async def process_kb_file(kb_id, file_path, original_filename):
         file_path: Temporary file path (will be deleted after processing)
         original_filename: Original filename from user upload
     """
+    document_id = None
     async with AsyncSessionLocal() as db:
         try:
             # 1. Verify KB exists
@@ -55,13 +55,16 @@ async def process_kb_file(kb_id, file_path, original_filename):
                 mime_type=_detect_mime_type(original_filename),
                 text_sha256=text_hash,
                 text_size=file_size,
-                doc_metadata={"source": original_filename},
+                doc_metadata={
+                    "source": original_filename,
+                    "processing_status": "processing",
+                },
                 created_at=datetime.now(timezone.utc),
             )
             db.add(document)
-            await db.flush()
+            await db.commit()
+            await db.refresh(document)
 
-            # Capture document ID before commit
             document_id = document.id
             document_filename = document.filename
 
@@ -97,6 +100,12 @@ async def process_kb_file(kb_id, file_path, original_filename):
                 )
 
             db.add_all(kb_chunk_objects)
+            document.doc_metadata = {
+                **(document.doc_metadata or {}),
+                "source": original_filename,
+                "processing_status": "completed",
+                "chunk_count": len(kb_chunk_objects),
+            }
             await db.commit()
 
             # 8. Clean up temp file
@@ -114,6 +123,8 @@ async def process_kb_file(kb_id, file_path, original_filename):
 
         except Exception as e:
             await db.rollback()
+            if document_id is not None:
+                await _mark_document_failed(document_id, str(e))
 
             # Clean up temp file on error
             if os.path.exists(file_path):
@@ -123,8 +134,24 @@ async def process_kb_file(kb_id, file_path, original_filename):
             print(f"❌ Error processing {original_filename}: {e}")
             import traceback
             traceback.print_exc()
+            return None
 
-            raise e
+
+async def _mark_document_failed(document_id, error_message: str):
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(KBDocument).where(KBDocument.id == document_id)
+        )
+        document = result.scalars().first()
+        if not document:
+            return
+
+        document.doc_metadata = {
+            **(document.doc_metadata or {}),
+            "processing_status": "failed",
+            "error": error_message,
+        }
+        await db.commit()
 
 
 def _detect_mime_type(filename: str) -> str:

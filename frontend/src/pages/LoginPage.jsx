@@ -49,8 +49,8 @@ export default function LoginPage({ onLogin }) {
       <Container
         header={
           <div className="nf-login-header">
-            <LogoMark size={56} withWordmark subtitle="Professional RAG workspace" />
-            <Header variant="h1" description="RAG Studio for chat, knowledge bases, and attachments">
+            <LogoMark size={56} withWordmark subtitle="Workflow design and copilot workspace" />
+            <Header variant="h1" description="Create workflows for business processes and use the same workspace for general copilot tasks.">
               Sign in
             </Header>
           </div>

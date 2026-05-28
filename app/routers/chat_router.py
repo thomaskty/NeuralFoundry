@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.database import get_db
 from app.db.models import ChatMessage, ChatSession, User
 from app.models.schemas import ChatCreate, MessageCreate, ChatSummaryRead
+from app.core.service_errors import EmbeddingServiceError
 from app.services.pipelines.chat_pipelines import generate_response_with_kb
 
 router = APIRouter()
@@ -29,7 +30,13 @@ async def conversation_chat(chat_id: str, body: MessageCreate):
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
     # Use KB-aware pipeline (returns dict with reply + metadata)
-    response_data = await generate_response_with_kb(chat_id, body.content)
+    try:
+        response_data = await generate_response_with_kb(chat_id, body.content)
+    except EmbeddingServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail=exc.message,
+        ) from exc
 
     return {
         "chat_id": chat_id,

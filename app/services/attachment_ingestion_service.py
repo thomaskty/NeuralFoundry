@@ -1,6 +1,5 @@
 # app/services/attachment_ingestion_service.py
 import os
-import aiofiles
 from datetime import datetime, timezone
 from sqlalchemy.future import select
 from app.db.database import AsyncSessionLocal
@@ -16,6 +15,7 @@ async def process_chat_attachment(chat_id: str, file_path: str, original_filenam
     Process uploaded chat attachment using Docling.
     Similar to KB processing but for temporary chat files.
     """
+    attachment_id = None
     async with AsyncSessionLocal() as db:
         try:
             # 1. Get file metadata
@@ -30,11 +30,12 @@ async def process_chat_attachment(chat_id: str, file_path: str, original_filenam
                 mime_type=mime_type,
                 file_size=file_size,
                 processing_status="processing",
+                file_metadata={"source": original_filename},
                 uploaded_at=datetime.now(timezone.utc),
             )
             db.add(attachment)
-            await db.flush()
-
+            await db.commit()
+            await db.refresh(attachment)
             attachment_id = attachment.id
 
             # 3. Process file with Docling
@@ -43,8 +44,6 @@ async def process_chat_attachment(chat_id: str, file_path: str, original_filenam
             print(f"Extracted {len(chunks)} chunks from attachment")
 
             if not chunks:
-                attachment.processing_status = "failed"
-                await db.commit()
                 raise ValueError(f"No content extracted from {original_filename}")
 
             # 4. Generate embeddings
@@ -73,6 +72,10 @@ async def process_chat_attachment(chat_id: str, file_path: str, original_filenam
             attachment.total_chunks = len(chunk_objects)
             attachment.processing_status = "completed"
             attachment.processed_at = datetime.now(timezone.utc)
+            attachment.file_metadata = {
+                **(attachment.file_metadata or {}),
+                "source": original_filename,
+            }
 
             await db.commit()
 
@@ -84,12 +87,32 @@ async def process_chat_attachment(chat_id: str, file_path: str, original_filenam
 
         except Exception as e:
             await db.rollback()
+            if attachment_id is not None:
+                await _mark_attachment_failed(attachment_id, str(e))
             if os.path.exists(file_path):
                 os.remove(file_path)
 
             print(f"❌ Error processing chat attachment {original_filename}: {e}")
             import traceback
             traceback.print_exc()
+
+
+async def _mark_attachment_failed(attachment_id, error_message: str):
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(ChatAttachment).where(ChatAttachment.id == attachment_id)
+        )
+        attachment = result.scalars().first()
+        if not attachment:
+            return
+
+        attachment.processing_status = "failed"
+        attachment.processed_at = datetime.now(timezone.utc)
+        attachment.file_metadata = {
+            **(attachment.file_metadata or {}),
+            "error": error_message,
+        }
+        await db.commit()
 
 
 def _detect_mime_type(filename: str) -> str:

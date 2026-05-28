@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import MessageList from '../chat/MessageList';
 import ChatInput from '../chat/ChatInput';
-import AttachmentPreview from '../chat/AttachmentPreview';
 
 export default function MainChatArea({
   currentChat,
@@ -43,21 +42,14 @@ export default function MainChatArea({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Attachments Preview */}
-      {attachments && attachments.length > 0 && (
-        <AttachmentPreview
-          attachments={attachments}
-          onRemove={onRemoveAttachment}
-          isUploading={isUploading}
-        />
-      )}
-
       {/* Chat Input */}
       <div className="border-t border-slate-200 p-4 bg-white/80 backdrop-blur">
         <ChatInput
           onSendMessage={onSendMessage}
           attachedKBs={attachedKBs}
+          attachments={attachments}
           onAttachFile={onAttachFile}
+          onRemoveAttachment={onRemoveAttachment}
           isUploading={isUploading}
         />
       </div>

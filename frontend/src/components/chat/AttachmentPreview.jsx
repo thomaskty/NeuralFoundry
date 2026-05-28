@@ -1,10 +1,4 @@
-import { Badge, Box, Button, SpaceBetween } from '@cloudscape-design/components'
-
-function getStatusColor(status) {
-  if (status === 'completed') return 'green'
-  if (status === 'failed') return 'red'
-  return 'blue'
-}
+import { Box, Button, SpaceBetween } from '@cloudscape-design/components'
 
 function formatFileSize(bytes) {
   if (!bytes) return 'Unknown'
@@ -29,7 +23,6 @@ export default function AttachmentPreview({ attachments, onRemove, isUploading }
               </Box>
             </div>
             <div className="nf-attachment-actions">
-              <Badge color={getStatusColor(att.processing_status)}>{att.processing_status || 'processing'}</Badge>
               <Button iconName="remove" variant="icon" onClick={() => onRemove(att.id)} disabled={isUploading} />
             </div>
           </div>

@@ -12,7 +12,7 @@ export default function Header({ user, onLogout }) {
           <h1 className="text-2xl font-bold text-slate-900">
             neural<span className="text-indigo-600">::</span>foundry
           </h1>
-          <p className="text-xs text-slate-500">RAG Studio</p>
+          <p className="text-xs text-slate-500">Workflow Copilot</p>
         </div>
       </div>
 

@@ -39,11 +39,16 @@ async def upload_chat_attachment(
             ChatAttachment.filename == file.filename
         )
     )
-    if existing.scalars().first():
-        raise HTTPException(
-            status_code=409,
-            detail=f"File '{file.filename}' already attached to this chat"
-        )
+    existing_attachment = existing.scalars().first()
+    if existing_attachment:
+        if existing_attachment.processing_status == "failed":
+            await db.delete(existing_attachment)
+            await db.commit()
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail=f"File '{file.filename}' already attached to this chat"
+            )
 
     # Save uploaded file to temp directory
     temp_dir = tempfile.gettempdir()
@@ -99,6 +104,7 @@ async def list_chat_attachments(
                 "file_size": att.file_size,
                 "total_chunks": att.total_chunks,
                 "processing_status": att.processing_status,
+                "error_message": (att.file_metadata or {}).get("error"),
                 "uploaded_at": att.uploaded_at,
                 "processed_at": att.processed_at
             }

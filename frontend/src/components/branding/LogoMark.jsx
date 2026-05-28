@@ -1,4 +1,4 @@
-export default function LogoMark({ size = 44, withWordmark = false, subtitle = 'RAG Studio' }) {
+export default function LogoMark({ size = 44, withWordmark = false, subtitle = 'Workflow Copilot' }) {
   return (
     <div className="nf-logo-lockup" style={{ '--nf-logo-size': `${size}px` }}>
       <svg
@@ -25,7 +25,7 @@ export default function LogoMark({ size = 44, withWordmark = false, subtitle = '
 
       {withWordmark && (
         <div className="nf-logo-copy">
-          <div className="nf-logo-wordmark">Neural Foundry</div>
+          <div className="nf-logo-wordmark">Workflow Copilot</div>
           <div className="nf-logo-subtitle">{subtitle}</div>
         </div>
       )}

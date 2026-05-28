@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import {
-  Badge,
   Box,
   Button,
   ButtonDropdown,
@@ -10,11 +9,9 @@ import {
   Select,
   SpaceBetween,
   Spinner,
-  StatusIndicator,
 } from '@cloudscape-design/components'
 import ChatInput from '../components/chat/ChatInput'
 import MessageList from '../components/chat/MessageList'
-import AttachmentPreview from '../components/chat/AttachmentPreview'
 import NewChatModal from '../components/chat/NewChatModal'
 import KBManagementModal from '../components/kb/KBManagementModal'
 import FileExplorerModal from '../components/kb/FileExplorerModal'
@@ -279,10 +276,6 @@ export default function ChatPage({ user, onLogout }) {
                     }}
                   />
                 </div>
-                <div className="nf-chat-list-meta">
-                  <span>{new Date(chat.created_at).toLocaleDateString()}</span>
-                  <span>{selected ? 'Open' : 'Recent'}</span>
-                </div>
               </button>
             )
           })
@@ -293,7 +286,7 @@ export default function ChatPage({ user, onLogout }) {
 
   const renderTools = () => (
     <aside className="nf-tools">
-      <Container header={<Header variant="h3">Model</Header>}>
+      <Container header={<div className="nf-panel-heading">Model</div>}>
         <Select
           selectedOption={selectedModel}
           options={MODEL_OPTIONS}
@@ -301,7 +294,7 @@ export default function ChatPage({ user, onLogout }) {
         />
       </Container>
 
-      <Container header={<Header variant="h3">Knowledge bases</Header>}>
+      <Container header={<div className="nf-panel-heading">Knowledge bases</div>}>
         <SpaceBetween size="s">
           {knowledgeBases.length === 0 ? (
             <Box color="text-body-secondary">No knowledge bases available.</Box>
@@ -333,23 +326,23 @@ export default function ChatPage({ user, onLogout }) {
         </SpaceBetween>
       </Container>
 
-      <Container header={<Header variant="h3">Workspace actions</Header>}>
+      <Container header={<div className="nf-panel-heading">Workspace actions</div>}>
         <div className="nf-action-grid">
           <button type="button" className="nf-action-card" onClick={() => handlePlaceholderAction('Saved prompts')}>
             <span className="nf-action-title">Saved prompts</span>
-            <span className="nf-action-copy">Reuse approved prompt patterns across chats.</span>
+            <span className="nf-action-copy">Reuse prompt patterns.</span>
           </button>
           <button type="button" className="nf-action-card" onClick={() => handlePlaceholderAction('Team sharing')}>
             <span className="nf-action-title">Team sharing</span>
-            <span className="nf-action-copy">Share sessions, notes, and KB selections with collaborators.</span>
+            <span className="nf-action-copy">Share sessions and notes.</span>
           </button>
           <button type="button" className="nf-action-card" onClick={() => handlePlaceholderAction('Evaluations')}>
             <span className="nf-action-title">Evaluations</span>
-            <span className="nf-action-copy">Track answer quality and retrieval performance over time.</span>
+            <span className="nf-action-copy">Track answer quality.</span>
           </button>
           <button type="button" className="nf-action-card" onClick={() => handlePlaceholderAction('Exports')}>
             <span className="nf-action-title">Exports</span>
-            <span className="nf-action-copy">Export chats, citations, and decisions into handoff docs.</span>
+            <span className="nf-action-copy">Export chats and notes.</span>
           </button>
         </div>
       </Container>
@@ -369,9 +362,9 @@ export default function ChatPage({ user, onLogout }) {
       return (
         <div className="nf-main-empty">
           <div className="nf-hero-card">
-            <div className="nf-hero-eyebrow">Neural Foundry</div>
-            <h2>Professional workspace for RAG conversations</h2>
-            <p>Create a new chat, attach knowledge bases, and test retrieval end-to-end.</p>
+            <div className="nf-hero-eyebrow">Workflow Copilot</div>
+            <h2>Design workflows and use the same workspace as a process copilot</h2>
+            <p>Create a workflow, attach supporting knowledge, and use chat for generic copilot tasks when needed.</p>
             <Button variant="primary" onClick={() => setShowNewChatModal(true)}>
               Create chat
             </Button>
@@ -386,10 +379,6 @@ export default function ChatPage({ user, onLogout }) {
           <div className="nf-chat-stage-header">
             <div>
               <h2>{currentChat.title || 'Untitled chat'}</h2>
-              <div className="nf-chat-stage-status">
-                <StatusIndicator type="success">Connected</StatusIndicator>
-                <Badge>{attachedKBs.length} KB attached</Badge>
-              </div>
             </div>
             <div className="nf-chat-stage-actions">
               <Button onClick={() => handlePlaceholderAction('Branch chat')}>Branch</Button>
@@ -405,15 +394,12 @@ export default function ChatPage({ user, onLogout }) {
         </div>
 
         <div className="nf-composer-shell">
-          <AttachmentPreview
-            attachments={attachments}
-            onRemove={handleRemoveAttachment}
-            isUploading={isUploading}
-          />
           <ChatInput
             onSendMessage={handleSendMessage}
             attachedKBs={attachedKBs}
+            attachments={attachments}
             onAttachFile={handleAttachFile}
+            onRemoveAttachment={handleRemoveAttachment}
             isUploading={isUploading}
           />
         </div>
@@ -425,7 +411,7 @@ export default function ChatPage({ user, onLogout }) {
     <div className="nf-shell">
       <header className="nf-topbar">
         <div className="nf-brand">
-          <LogoMark size={44} withWordmark subtitle="RAG Studio" />
+          <LogoMark size={44} withWordmark subtitle="Workflow Copilot" />
         </div>
         <div className="nf-topbar-actions">
           <Button onClick={() => setShowKBModal(true)}>Knowledge bases</Button>

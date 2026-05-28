@@ -3,11 +3,8 @@ import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
-  Badge,
   Box,
   Button,
-  Container,
-  SpaceBetween,
 } from '@cloudscape-design/components'
 
 export default function MessageBubble({ message }) {
@@ -22,40 +19,42 @@ export default function MessageBubble({ message }) {
 
   return (
     <div className={`nf-message-row ${isUser ? 'is-user' : 'is-assistant'}`}>
-      <Container>
-        <SpaceBetween size="s">
-          <div className="nf-message-meta">
-            <Badge color={isUser ? 'blue' : 'green'}>{isUser ? 'User' : 'Assistant'}</Badge>
-            <Box color="text-body-secondary" fontSize="body-s">
-              {new Date(message.created_at).toLocaleTimeString()}
-            </Box>
-            {!isUser && (
-              <Button iconName={copied ? 'status-positive' : 'copy'} variant="icon" onClick={handleCopy} />
-            )}
-          </div>
+      <div className={`nf-message-bubble ${isUser ? 'is-user' : 'is-assistant'}`}>
+        <Box>
+          <ReactMarkdown
+            components={{
+              code({ inline, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || '')
+                return !inline && match ? (
+                  <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" {...props}>
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                )
+              },
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </Box>
 
-          <Box>
-            <ReactMarkdown
-              components={{
-                code({ inline, className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '')
-                  return !inline && match ? (
-                    <SyntaxHighlighter style={vscDarkPlus} language={match[1]} PreTag="div" {...props}>
-                      {String(children).replace(/\n$/, '')}
-                    </SyntaxHighlighter>
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
-                  )
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
+        <div className="nf-message-meta">
+          {!isUser && (
+            <Button
+              iconName={copied ? 'status-positive' : 'copy'}
+              variant="icon"
+              onClick={handleCopy}
+              ariaLabel="Copy message"
+            />
+          )}
+          <Box color="text-body-secondary" fontSize="body-s">
+            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Box>
-        </SpaceBetween>
-      </Container>
+        </div>
+      </div>
     </div>
   )
 }

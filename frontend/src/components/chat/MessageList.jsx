@@ -11,7 +11,7 @@ export default function MessageList({ messages }) {
   }
 
   return (
-    <SpaceBetween size="l">
+    <SpaceBetween size="m">
       {messages.map((message) => (
         <MessageBubble key={message.id} message={message} />
       ))}

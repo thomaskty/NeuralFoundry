@@ -74,11 +74,17 @@ async def upload_file_to_kb(
             KBDocument.filename == file.filename
         )
     )
-    if existing_doc.scalars().first():
-        raise HTTPException(
-            status_code=409,
-            detail=f"File '{file.filename}' already exists in this knowledge base"
-        )
+    existing_document = existing_doc.scalars().first()
+    if existing_document:
+        existing_status = (existing_document.doc_metadata or {}).get("processing_status")
+        if existing_status == "failed":
+            await db.delete(existing_document)
+            await db.commit()
+        else:
+            raise HTTPException(
+                status_code=409,
+                detail=f"File '{file.filename}' already exists in this knowledge base"
+            )
 
     # Save uploaded file to system temp directory with unique prefix
     temp_dir = tempfile.gettempdir()
@@ -164,6 +170,8 @@ async def list_kb_documents(
             "mime_type": doc.mime_type,
             "text_size": doc.text_size,
             "chunk_count": chunk_count,
+            "processing_status": (doc.doc_metadata or {}).get("processing_status", "completed"),
+            "error_message": (doc.doc_metadata or {}).get("error"),
             "created_at": doc.created_at
         })
 

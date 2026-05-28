@@ -4,6 +4,7 @@ from typing import Optional, List, Dict
 from datetime import datetime, timezone
 from openai import AsyncOpenAI
 from app.core.config import settings
+from app.core.service_errors import EmbeddingServiceError
 from app.services.vector_stores.pgvector_vs import PgVectorStore
 from app.services.wrappers.async_embedding import get_embedding_async
 
@@ -330,13 +331,16 @@ async def generate_response_with_kb(
     }
 
     # 9. Store clean assistant response
-    reply_emb = await get_embedding_async(assistant_reply)
-    await _pgv.add_message(
-        session_id=chat_id,
-        role="assistant",
-        content=assistant_reply,
-        embedding=reply_emb
-    )
+    try:
+        reply_emb = await get_embedding_async(assistant_reply)
+        await _pgv.add_message(
+            session_id=chat_id,
+            role="assistant",
+            content=assistant_reply,
+            embedding=reply_emb
+        )
+    except EmbeddingServiceError as exc:
+        print(f"⚠️  Assistant reply was returned but could not be embedded for history search: {exc.message}")
 
     # 10. Return response with metadata
     return {

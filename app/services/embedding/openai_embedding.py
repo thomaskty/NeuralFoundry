@@ -1,8 +1,8 @@
 # app/services/embedding/openai_embedding.py
-import os
 import numpy as np
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAIError, RateLimitError
 from app.core.config import settings
+from app.core.service_errors import EmbeddingServiceError
 
 
 class OpenAIEmbeddingClient:
@@ -26,10 +26,25 @@ class OpenAIEmbeddingClient:
         Returns:
             numpy array of shape (1536,)
         """
-        response = await self.client.embeddings.create(
-            model=self.model,
-            input=text
-        )
+        try:
+            response = await self.client.embeddings.create(
+                model=self.model,
+                input=text
+            )
+        except RateLimitError as exc:
+            error_code = ((getattr(exc, "body", None) or {}).get("error") or {}).get("code")
+            if error_code == "insufficient_quota":
+                raise EmbeddingServiceError(
+                    "Embeddings are unavailable because the configured OpenAI project has no remaining quota.",
+                    status_code=429,
+                    retryable=False,
+                ) from exc
+            raise EmbeddingServiceError(
+                "Embeddings are currently rate limited. Please retry shortly.",
+                status_code=429,
+            ) from exc
+        except OpenAIError as exc:
+            raise EmbeddingServiceError("Embeddings are temporarily unavailable.") from exc
         embedding = response.data[0].embedding
         return np.array(embedding, dtype=np.float32)
 
@@ -45,10 +60,25 @@ class OpenAIEmbeddingClient:
         """
         # OpenAI allows batch requests up to 2048 texts
         # If you have more, you'll need to chunk them
-        response = await self.client.embeddings.create(
-            model=self.model,
-            input=texts
-        )
+        try:
+            response = await self.client.embeddings.create(
+                model=self.model,
+                input=texts
+            )
+        except RateLimitError as exc:
+            error_code = ((getattr(exc, "body", None) or {}).get("error") or {}).get("code")
+            if error_code == "insufficient_quota":
+                raise EmbeddingServiceError(
+                    "Embeddings are unavailable because the configured OpenAI project has no remaining quota.",
+                    status_code=429,
+                    retryable=False,
+                ) from exc
+            raise EmbeddingServiceError(
+                "Embeddings are currently rate limited. Please retry shortly.",
+                status_code=429,
+            ) from exc
+        except OpenAIError as exc:
+            raise EmbeddingServiceError("Embeddings are temporarily unavailable.") from exc
 
         embeddings = [np.array(item.embedding, dtype=np.float32) for item in response.data]
         return embeddings
